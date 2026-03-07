@@ -193,7 +193,7 @@ class PayloadLabViewModel @Inject constructor(
                         getDefaultBadUsbActions()
                     }
                     _searchSuggestions.value = toolExecutor.getSearchSuggestions(
-                        PayloadType.BADUSB,
+                        PayloadType.BAD_USB,
                         prompt
                     )
                     _generationPhase.value = GenerationPhase.COMPLETE
@@ -338,7 +338,7 @@ class PayloadLabViewModel @Inject constructor(
                             getDefaultPortalActions()
                         }
                         _searchSuggestions.value = toolExecutor.getSearchSuggestions(
-                            PayloadType.EVIL_PORTAL,
+                            PayloadType.UNKNOWN,
                             _portalType.value.name
                         )
                         _generationPhase.value = GenerationPhase.COMPLETE

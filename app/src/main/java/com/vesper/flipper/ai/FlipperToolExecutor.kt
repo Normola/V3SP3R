@@ -265,7 +265,7 @@ class FlipperToolExecutor @Inject constructor(
      */
     fun getSearchSuggestions(payloadType: PayloadType, context: String): List<SearchSuggestion> {
         return when (payloadType) {
-            PayloadType.BADUSB -> listOf(
+            PayloadType.BAD_USB -> listOf(
                 SearchSuggestion(
                     label = "DuckyScript commands reference",
                     query = "duckyscript commands reference flipper zero"
@@ -283,22 +283,112 @@ class FlipperToolExecutor @Inject constructor(
                     query = "windows uac bypass techniques 2024"
                 )
             )
-            PayloadType.EVIL_PORTAL -> listOf(
+            PayloadType.SUB_GHZ -> listOf(
                 SearchSuggestion(
-                    label = "Evil Portal templates",
-                    query = "evil portal templates flipper zero github"
+                    label = "Sub-GHz protocols",
+                    query = "flipper zero sub-ghz protocols supported"
                 ),
                 SearchSuggestion(
-                    label = "Captive portal design",
-                    query = "captive portal login page css design"
+                    label = "Sub-GHz frequency database",
+                    query = "sub-ghz frequency database by country"
                 ),
                 SearchSuggestion(
-                    label = "Brand color codes",
-                    query = "$context brand colors hex codes"
+                    label = "Sub-GHz file format",
+                    query = "flipper zero .sub file format specification"
                 ),
                 SearchSuggestion(
-                    label = "Login page HTML templates",
-                    query = "minimal login page html css template"
+                    label = "Sub-GHz captures GitHub",
+                    query = "flipper zero sub-ghz captures github"
+                )
+            )
+            PayloadType.INFRARED -> listOf(
+                SearchSuggestion(
+                    label = "IR remote database",
+                    query = "flipper zero infrared remote database IRDB"
+                ),
+                SearchSuggestion(
+                    label = "IR protocol reference",
+                    query = "infrared NEC RC5 RC6 protocol reference"
+                ),
+                SearchSuggestion(
+                    label = "Universal remotes",
+                    query = "flipper zero universal remote $context"
+                ),
+                SearchSuggestion(
+                    label = "IR file format",
+                    query = "flipper zero .ir file format specification"
+                )
+            )
+            PayloadType.NFC -> listOf(
+                SearchSuggestion(
+                    label = "NFC tag types",
+                    query = "flipper zero NFC tag types NTAG MIFARE"
+                ),
+                SearchSuggestion(
+                    label = "Amiibo files",
+                    query = "flipper zero amiibo NFC files github"
+                ),
+                SearchSuggestion(
+                    label = "NFC file format",
+                    query = "flipper zero .nfc file format specification"
+                ),
+                SearchSuggestion(
+                    label = "NFC tools and apps",
+                    query = "flipper zero NFC tools apps fap"
+                )
+            )
+            PayloadType.RFID -> listOf(
+                SearchSuggestion(
+                    label = "RFID protocols",
+                    query = "flipper zero LFRFID protocols EM4100 HID"
+                ),
+                SearchSuggestion(
+                    label = "RFID file format",
+                    query = "flipper zero .rfid file format"
+                ),
+                SearchSuggestion(
+                    label = "RFID cloning guide",
+                    query = "flipper zero RFID read clone guide"
+                ),
+                SearchSuggestion(
+                    label = "125kHz RFID cards",
+                    query = "125khz RFID card types and protocols"
+                )
+            )
+            PayloadType.IBUTTON -> listOf(
+                SearchSuggestion(
+                    label = "iButton protocols",
+                    query = "flipper zero iButton DS1990 Cyfral Metakom"
+                ),
+                SearchSuggestion(
+                    label = "iButton file format",
+                    query = "flipper zero .ibtn file format"
+                ),
+                SearchSuggestion(
+                    label = "iButton guide",
+                    query = "flipper zero iButton read emulate guide"
+                ),
+                SearchSuggestion(
+                    label = "1-Wire protocol",
+                    query = "Dallas 1-Wire protocol iButton reference"
+                )
+            )
+            PayloadType.UNKNOWN -> listOf(
+                SearchSuggestion(
+                    label = "Flipper Zero file formats",
+                    query = "flipper zero supported file formats"
+                ),
+                SearchSuggestion(
+                    label = "Flipper Zero payloads",
+                    query = "flipper zero payloads github $context"
+                ),
+                SearchSuggestion(
+                    label = "Flipper Zero guides",
+                    query = "flipper zero beginner guide tutorials"
+                ),
+                SearchSuggestion(
+                    label = "Flipper community",
+                    query = "flipper zero community resources tools"
                 )
             )
         }
