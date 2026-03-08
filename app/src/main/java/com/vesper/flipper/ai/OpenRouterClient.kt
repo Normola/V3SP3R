@@ -545,6 +545,22 @@ class OpenRouterClient @Inject constructor(
                 }
             }
 
+            fun intArg(primary: String, vararg aliases: String): Int? {
+                val keys = listOf(primary) + aliases
+                return keys.firstNotNullOfOrNull { key ->
+                    (argsObject[key]?.jsonPrimitive ?: root[key]?.jsonPrimitive)
+                        ?.let { it.intOrNull ?: it.contentOrNull?.toIntOrNull() }
+                }
+            }
+
+            fun longArg(primary: String, vararg aliases: String): Long? {
+                val keys = listOf(primary) + aliases
+                return keys.firstNotNullOfOrNull { key ->
+                    (argsObject[key]?.jsonPrimitive ?: root[key]?.jsonPrimitive)
+                        ?.let { it.longOrNull ?: it.contentOrNull?.toLongOrNull() }
+                }
+            }
+
             val args = CommandArgs(
                 command = stringArg("command", "cmd", "query", "app_id", "appId", "app", "package", "name"),
                 path = stringArg("path", "file_path", "filepath"),
@@ -558,7 +574,18 @@ class OpenRouterClient @Inject constructor(
                 resourceType = stringArg("resource_type", "resourceType", "type"),
                 runbookId = stringArg("runbook_id", "runbookId", "runbook"),
                 payloadType = stringArg("payload_type", "payloadType"),
-                filter = stringArg("filter", "vault_filter")
+                filter = stringArg("filter", "vault_filter"),
+                // Hardware control fields
+                appName = stringArg("app_name", "appName", "app_name_launch"),
+                appArgs = stringArg("app_args", "appArgs", "app_arguments"),
+                frequency = longArg("frequency", "freq"),
+                protocol = stringArg("protocol"),
+                address = stringArg("address"),
+                signalName = stringArg("signal_name", "signalName", "signal"),
+                enabled = booleanArg("enabled", "on"),
+                red = intArg("red", "r"),
+                green = intArg("green", "g"),
+                blue = intArg("blue", "b")
             )
 
             val missingArgs = missingRequiredArgs(action, args)
@@ -617,6 +644,16 @@ class OpenRouterClient @Inject constructor(
             "search_resources", "browse_resources", "find_resources" -> CommandAction.SEARCH_RESOURCES
             "list_vault", "vault", "scan_vault", "inventory" -> CommandAction.LIST_VAULT
             "run_runbook", "runbook", "diagnostic" -> CommandAction.RUN_RUNBOOK
+            "launch_app", "open_app", "start_app", "loader_open" -> CommandAction.LAUNCH_APP
+            "subghz_transmit", "subghz_tx", "sub_ghz_transmit", "transmit_subghz" -> CommandAction.SUBGHZ_TRANSMIT
+            "ir_transmit", "infrared_transmit", "transmit_ir" -> CommandAction.IR_TRANSMIT
+            "nfc_emulate", "emulate_nfc" -> CommandAction.NFC_EMULATE
+            "rfid_emulate", "emulate_rfid", "lfrfid_emulate" -> CommandAction.RFID_EMULATE
+            "ibutton_emulate", "emulate_ibutton" -> CommandAction.IBUTTON_EMULATE
+            "badusb_execute", "run_badusb", "execute_badusb", "badusb_run" -> CommandAction.BADUSB_EXECUTE
+            "ble_spam", "blespam", "ble_advertisement_spam" -> CommandAction.BLE_SPAM
+            "led_control", "set_led", "led" -> CommandAction.LED_CONTROL
+            "vibro_control", "vibro", "vibration" -> CommandAction.VIBRO_CONTROL
             else -> null
         }
     }
@@ -695,6 +732,22 @@ class OpenRouterClient @Inject constructor(
                     emptyList()
                 }
             }
+            CommandAction.LAUNCH_APP -> {
+                if (args.appName.isNullOrBlank() && args.command.isNullOrBlank()) {
+                    listOf("app_name")
+                } else {
+                    emptyList()
+                }
+            }
+            CommandAction.SUBGHZ_TRANSMIT -> listOfNotNull(if (args.path.isNullOrBlank()) "path" else null)
+            CommandAction.IR_TRANSMIT -> listOfNotNull(if (args.path.isNullOrBlank()) "path" else null)
+            CommandAction.NFC_EMULATE -> listOfNotNull(if (args.path.isNullOrBlank()) "path" else null)
+            CommandAction.RFID_EMULATE -> listOfNotNull(if (args.path.isNullOrBlank()) "path" else null)
+            CommandAction.IBUTTON_EMULATE -> listOfNotNull(if (args.path.isNullOrBlank()) "path" else null)
+            CommandAction.BADUSB_EXECUTE -> listOfNotNull(if (args.path.isNullOrBlank()) "path" else null)
+            CommandAction.BLE_SPAM -> emptyList()  // no required args
+            CommandAction.LED_CONTROL -> emptyList()  // defaults to 0,0,0
+            CommandAction.VIBRO_CONTROL -> emptyList()  // defaults to on
         }
     }
 
@@ -732,6 +785,26 @@ class OpenRouterClient @Inject constructor(
                 """{"action":"list_vault","args":{"filter":"SUB_GHZ"}}"""
             CommandAction.RUN_RUNBOOK ->
                 """{"action":"run_runbook","args":{"runbook_id":"link_health"}}"""
+            CommandAction.LAUNCH_APP ->
+                """{"action":"launch_app","args":{"app_name":"Sub-GHz"}}"""
+            CommandAction.SUBGHZ_TRANSMIT ->
+                """{"action":"subghz_transmit","args":{"path":"/ext/subghz/signal.sub"}}"""
+            CommandAction.IR_TRANSMIT ->
+                """{"action":"ir_transmit","args":{"path":"/ext/infrared/remote.ir","signal_name":"Power"}}"""
+            CommandAction.NFC_EMULATE ->
+                """{"action":"nfc_emulate","args":{"path":"/ext/nfc/card.nfc"}}"""
+            CommandAction.RFID_EMULATE ->
+                """{"action":"rfid_emulate","args":{"path":"/ext/lfrfid/tag.rfid"}}"""
+            CommandAction.IBUTTON_EMULATE ->
+                """{"action":"ibutton_emulate","args":{"path":"/ext/ibutton/key.ibtn"}}"""
+            CommandAction.BADUSB_EXECUTE ->
+                """{"action":"badusb_execute","args":{"path":"/ext/badusb/script.txt"}}"""
+            CommandAction.BLE_SPAM ->
+                """{"action":"ble_spam","args":{}}"""
+            CommandAction.LED_CONTROL ->
+                """{"action":"led_control","args":{"red":255,"green":0,"blue":0}}"""
+            CommandAction.VIBRO_CONTROL ->
+                """{"action":"vibro_control","args":{"enabled":true}}"""
         }
     }
 
@@ -918,7 +991,17 @@ class OpenRouterClient @Inject constructor(
             "forge_payload",
             "search_resources",
             "list_vault",
-            "run_runbook"
+            "run_runbook",
+            "launch_app",
+            "subghz_transmit",
+            "ir_transmit",
+            "nfc_emulate",
+            "rfid_emulate",
+            "ibutton_emulate",
+            "badusb_execute",
+            "ble_spam",
+            "led_control",
+            "vibro_control"
         )
 
         private val TOOL_USE_FALLBACK_MODELS = listOf(
@@ -937,7 +1020,7 @@ class OpenRouterClient @Inject constructor(
             type = "function",
             function = OpenRouterToolFunction(
                 name = "execute_command",
-                description = "Execute a Flipper operation. Supports file ops, device/storage queries, FapHub search/install, artifact pushes, execute_cli for direct Flipper CLI commands, forge_payload for AI payload crafting, search_resources for browsing public Flipper resource repos, list_vault for scanning the user's payload inventory, and run_runbook for diagnostic sequences.",
+                description = "Execute a Flipper operation. Supports file ops, device queries, FapHub, CLI commands, payload forging, resource search, vault scan, runbooks, AND hardware control: launch apps, transmit Sub-GHz/IR signals, emulate NFC/RFID/iButton, run BadUSB, BLE spam, LED and vibro control.",
                 parameters = JsonObject(mapOf(
                     "type" to JsonPrimitive("object"),
                     "properties" to JsonObject(mapOf(
@@ -961,7 +1044,17 @@ class OpenRouterClient @Inject constructor(
                                 JsonPrimitive("forge_payload"),
                                 JsonPrimitive("search_resources"),
                                 JsonPrimitive("list_vault"),
-                                JsonPrimitive("run_runbook")
+                                JsonPrimitive("run_runbook"),
+                                JsonPrimitive("launch_app"),
+                                JsonPrimitive("subghz_transmit"),
+                                JsonPrimitive("ir_transmit"),
+                                JsonPrimitive("nfc_emulate"),
+                                JsonPrimitive("rfid_emulate"),
+                                JsonPrimitive("ibutton_emulate"),
+                                JsonPrimitive("badusb_execute"),
+                                JsonPrimitive("ble_spam"),
+                                JsonPrimitive("led_control"),
+                                JsonPrimitive("vibro_control")
                             )),
                             "description" to JsonPrimitive("The action to perform on the Flipper Zero")
                         )),
@@ -1033,6 +1126,46 @@ class OpenRouterClient @Inject constructor(
                                 "filter" to JsonObject(mapOf(
                                     "type" to JsonPrimitive("string"),
                                     "description" to JsonPrimitive("Type filter for list_vault: SUB_GHZ, INFRARED, NFC, RFID, BAD_USB, IBUTTON")
+                                )),
+                                "app_name" to JsonObject(mapOf(
+                                    "type" to JsonPrimitive("string"),
+                                    "description" to JsonPrimitive("App name for launch_app (e.g. 'Sub-GHz', 'Infrared', 'NFC', 'Snake')")
+                                )),
+                                "app_args" to JsonObject(mapOf(
+                                    "type" to JsonPrimitive("string"),
+                                    "description" to JsonPrimitive("Arguments for launch_app or ble_spam (e.g. 'stop')")
+                                )),
+                                "frequency" to JsonObject(mapOf(
+                                    "type" to JsonPrimitive("integer"),
+                                    "description" to JsonPrimitive("Frequency in Hz for subghz_transmit (e.g. 433920000)")
+                                )),
+                                "protocol" to JsonObject(mapOf(
+                                    "type" to JsonPrimitive("string"),
+                                    "description" to JsonPrimitive("Protocol name for subghz_transmit or rfid_emulate (e.g. 'RAW', 'Princeton', 'EM4100')")
+                                )),
+                                "address" to JsonObject(mapOf(
+                                    "type" to JsonPrimitive("string"),
+                                    "description" to JsonPrimitive("Address/UID for NFC/RFID emulation")
+                                )),
+                                "signal_name" to JsonObject(mapOf(
+                                    "type" to JsonPrimitive("string"),
+                                    "description" to JsonPrimitive("Signal name within an IR file for ir_transmit (e.g. 'Power', 'Vol_up')")
+                                )),
+                                "enabled" to JsonObject(mapOf(
+                                    "type" to JsonPrimitive("boolean"),
+                                    "description" to JsonPrimitive("Enable/disable for vibro_control")
+                                )),
+                                "red" to JsonObject(mapOf(
+                                    "type" to JsonPrimitive("integer"),
+                                    "description" to JsonPrimitive("Red LED value 0-255 for led_control")
+                                )),
+                                "green" to JsonObject(mapOf(
+                                    "type" to JsonPrimitive("integer"),
+                                    "description" to JsonPrimitive("Green LED value 0-255 for led_control")
+                                )),
+                                "blue" to JsonObject(mapOf(
+                                    "type" to JsonPrimitive("integer"),
+                                    "description" to JsonPrimitive("Blue LED value 0-255 for led_control")
                                 ))
                             ))
                         )),

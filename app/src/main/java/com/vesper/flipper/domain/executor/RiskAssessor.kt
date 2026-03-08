@@ -212,18 +212,122 @@ class RiskAssessor @Inject constructor(
                 )
             }
 
+            // ── Hardware control actions ─────────────────────────
+
+            // MEDIUM risk: app launching — non-destructive but affects device state
+            CommandAction.LAUNCH_APP -> {
+                RiskAssessment(
+                    level = RiskLevel.MEDIUM,
+                    reason = "Launch app on Flipper",
+                    affectedPaths = paths,
+                    requiresDiff = false,
+                    requiresConfirmation = true
+                )
+            }
+
+            // MEDIUM risk: signal transmission — sends RF/IR but not destructive
+            CommandAction.SUBGHZ_TRANSMIT -> {
+                RiskAssessment(
+                    level = RiskLevel.MEDIUM,
+                    reason = "Sub-GHz signal transmission",
+                    affectedPaths = paths,
+                    requiresDiff = false,
+                    requiresConfirmation = true
+                )
+            }
+
+            CommandAction.IR_TRANSMIT -> {
+                RiskAssessment(
+                    level = RiskLevel.MEDIUM,
+                    reason = "Infrared signal transmission",
+                    affectedPaths = paths,
+                    requiresDiff = false,
+                    requiresConfirmation = true
+                )
+            }
+
+            CommandAction.NFC_EMULATE -> {
+                RiskAssessment(
+                    level = RiskLevel.MEDIUM,
+                    reason = "NFC emulation",
+                    affectedPaths = paths,
+                    requiresDiff = false,
+                    requiresConfirmation = true
+                )
+            }
+
+            CommandAction.RFID_EMULATE -> {
+                RiskAssessment(
+                    level = RiskLevel.MEDIUM,
+                    reason = "RFID emulation",
+                    affectedPaths = paths,
+                    requiresDiff = false,
+                    requiresConfirmation = true
+                )
+            }
+
+            CommandAction.IBUTTON_EMULATE -> {
+                RiskAssessment(
+                    level = RiskLevel.MEDIUM,
+                    reason = "iButton emulation",
+                    affectedPaths = paths,
+                    requiresDiff = false,
+                    requiresConfirmation = true
+                )
+            }
+
+            // HIGH risk: BadUSB executes keystrokes on a connected computer
+            CommandAction.BADUSB_EXECUTE -> {
+                RiskAssessment(
+                    level = RiskLevel.HIGH,
+                    reason = "BadUSB script execution (injects keystrokes)",
+                    affectedPaths = paths,
+                    requiresDiff = false,
+                    requiresConfirmation = true
+                )
+            }
+
+            // MEDIUM risk: BLE spam is non-destructive broadcast
+            CommandAction.BLE_SPAM -> {
+                RiskAssessment(
+                    level = RiskLevel.MEDIUM,
+                    reason = "BLE advertisement spam",
+                    affectedPaths = paths,
+                    requiresDiff = false,
+                    requiresConfirmation = true
+                )
+            }
+
+            // LOW risk: LED and vibro are harmless hardware feedback
+            CommandAction.LED_CONTROL,
+            CommandAction.VIBRO_CONTROL -> {
+                RiskAssessment(
+                    level = RiskLevel.LOW,
+                    reason = "Hardware feedback control",
+                    affectedPaths = paths,
+                    requiresDiff = false,
+                    requiresConfirmation = false
+                )
+            }
+
             CommandAction.EXECUTE_CLI -> {
                 val cliCommand = (command.args.command ?: command.args.content).orEmpty()
-                if (isLowRiskCli(cliCommand)) {
-                    RiskAssessment(
+                when {
+                    isLowRiskCli(cliCommand) -> RiskAssessment(
                         level = RiskLevel.LOW,
                         reason = "Read-only CLI command",
                         affectedPaths = paths,
                         requiresDiff = false,
                         requiresConfirmation = false
                     )
-                } else {
-                    RiskAssessment(
+                    isMediumRiskCli(cliCommand) -> RiskAssessment(
+                        level = RiskLevel.MEDIUM,
+                        reason = "Hardware control CLI command",
+                        affectedPaths = paths,
+                        requiresDiff = false,
+                        requiresConfirmation = true
+                    )
+                    else -> RiskAssessment(
                         level = RiskLevel.HIGH,
                         reason = "Potentially destructive CLI command",
                         affectedPaths = paths,
@@ -283,6 +387,12 @@ class RiskAssessor @Inject constructor(
         return SAFE_CLI_PREFIXES.any { normalized.startsWith(it) }
     }
 
+    private fun isMediumRiskCli(command: String): Boolean {
+        val normalized = command.trim().lowercase()
+        if (normalized.isBlank()) return false
+        return MEDIUM_CLI_PREFIXES.any { normalized.startsWith(it) }
+    }
+
     private fun isMassCliOperation(command: String): Boolean {
         val normalized = command.trim().lowercase()
         return normalized.contains("remove_recursive") ||
@@ -293,6 +403,7 @@ class RiskAssessor @Inject constructor(
 
     companion object {
         private val SAFE_CLI_PREFIXES = listOf(
+            // Read-only diagnostics
             "help",
             "version",
             "device_info",
@@ -303,7 +414,41 @@ class RiskAssessor @Inject constructor(
             "storage read",
             "storage cat",
             "storage info",
-            "storage stat"
+            "storage stat",
+            // Harmless hardware feedback
+            "led ",
+            "vibro "
+        )
+
+        /**
+         * CLI commands that should be MEDIUM risk (user confirms once)
+         * instead of HIGH risk. Non-destructive hardware operations.
+         */
+        private val MEDIUM_CLI_PREFIXES = listOf(
+            "loader open",
+            "loader list",
+            "loader info",
+            "subghz tx",
+            "subghz tx_from_file",
+            "ir tx",
+            "infrared tx",
+            "nfc emulate",
+            "nfc emu",
+            "rfid emulate",
+            "rfid emu",
+            "lfrfid emulate",
+            "lfrfid emu",
+            "ibutton emulate",
+            "ibutton emu",
+            "ble_spam",
+            "blespam",
+            "ble spam",
+            "ble_scan",
+            "blescan",
+            "ble scan",
+            // Note: badusb is HIGH risk via dedicated BADUSB_EXECUTE action.
+            // But if someone uses raw CLI, we still want user confirmation (HIGH via else branch).
+            // So badusb is intentionally NOT in the MEDIUM list.
         )
     }
 }

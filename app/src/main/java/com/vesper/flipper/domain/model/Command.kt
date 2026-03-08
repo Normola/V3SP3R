@@ -70,7 +70,39 @@ enum class CommandAction {
     LIST_VAULT,
 
     @SerialName("run_runbook")
-    RUN_RUNBOOK
+    RUN_RUNBOOK,
+
+    // ── Hardware control actions ──────────────────────────────
+
+    @SerialName("launch_app")
+    LAUNCH_APP,
+
+    @SerialName("subghz_transmit")
+    SUBGHZ_TRANSMIT,
+
+    @SerialName("ir_transmit")
+    IR_TRANSMIT,
+
+    @SerialName("nfc_emulate")
+    NFC_EMULATE,
+
+    @SerialName("rfid_emulate")
+    RFID_EMULATE,
+
+    @SerialName("ibutton_emulate")
+    IBUTTON_EMULATE,
+
+    @SerialName("badusb_execute")
+    BADUSB_EXECUTE,
+
+    @SerialName("ble_spam")
+    BLE_SPAM,
+
+    @SerialName("led_control")
+    LED_CONTROL,
+
+    @SerialName("vibro_control")
+    VIBRO_CONTROL
 }
 
 @Serializable
@@ -94,7 +126,22 @@ data class CommandArgs(
     val runbookId: String? = null,
     @SerialName("payload_type")
     val payloadType: String? = null,
-    val filter: String? = null
+    val filter: String? = null,
+
+    // Hardware control fields
+    @SerialName("app_name")
+    val appName: String? = null,
+    @SerialName("app_args")
+    val appArgs: String? = null,
+    val frequency: Long? = null,
+    val protocol: String? = null,
+    val address: String? = null,
+    @SerialName("signal_name")
+    val signalName: String? = null,
+    val enabled: Boolean? = null,
+    val red: Int? = null,
+    val green: Int? = null,
+    val blue: Int? = null
 )
 
 /**

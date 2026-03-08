@@ -1410,6 +1410,12 @@ class FlipperProtocol @Inject constructor() {
                 val tail = command.substringAfter("storage rm ").trim()
                 add("storage remove $tail")
             }
+            lower.startsWith("loader open ") -> {
+                // loader open maps to RPC AppStart — no CLI variants needed,
+                // but ensure both casing styles are tried
+                val tail = command.substringAfter("loader open ").trim()
+                add("loader open $tail")
+            }
             lower.startsWith("subghz tx_from_file ") -> {
                 val tail = command.substringAfter("subghz tx_from_file ").trim()
                 add("subghz tx $tail")
@@ -2810,6 +2816,31 @@ class FlipperProtocol @Inject constructor() {
                 ),
                 appArgs = RPC_APP_START_ARGUMENT,
                 filePath = iButtonPath,
+                buttonArgsCandidates = listOf(""),
+                triggerOkPress = false
+            )
+        }
+
+        // Generic app launcher: "loader open <AppName> [args]"
+        val loaderTail = Regex(
+            "^loader\\s+open\\s+(.+)$",
+            RegexOption.IGNORE_CASE
+        ).find(normalized)?.groupValues?.getOrNull(1)
+        if (!loaderTail.isNullOrBlank()) {
+            val loaderParsedArgs = parseCommandArguments(loaderTail)
+            val (loaderAppOverride, loaderArgsTokens) = extractAppOverrideAndArgs(loaderParsedArgs)
+            val appName = loaderAppOverride ?: loaderArgsTokens.firstOrNull() ?: loaderTail.trim()
+            val remainingArgs = if (loaderAppOverride != null) {
+                loaderArgsTokens.joinToString(" ").trim()
+            } else {
+                loaderArgsTokens.drop(1).joinToString(" ").trim()
+            }
+            return RpcCommandPlan(
+                appCandidates = buildRpcAppCandidates(
+                    baseCandidates = listOf(appName),
+                    customOverride = null
+                ),
+                appArgs = remainingArgs.ifBlank { RPC_APP_START_ARGUMENT },
                 buttonArgsCandidates = listOf(""),
                 triggerOkPress = false
             )

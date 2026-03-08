@@ -493,6 +493,121 @@ class CommandExecutor @Inject constructor(
                     ?: throw IllegalArgumentException("Runbook ID required")
                 executeRunbook(runbookId)
             }
+
+            // ── Hardware control actions ─────────────────────────
+
+            CommandAction.LAUNCH_APP -> {
+                val appName = command.args.appName
+                    ?: command.args.command
+                    ?: throw IllegalArgumentException("App name required")
+                val appArgs = command.args.appArgs ?: ""
+                val cliCommand = if (appArgs.isNotBlank()) {
+                    "loader open $appName $appArgs"
+                } else {
+                    "loader open $appName"
+                }
+                val output = fileSystem.executeCli(cliCommand).getOrThrow()
+                CommandResultData(
+                    content = output,
+                    message = "Launched app: $appName"
+                )
+            }
+
+            CommandAction.SUBGHZ_TRANSMIT -> {
+                val path = command.args.path
+                    ?: throw IllegalArgumentException("Sub-GHz file path required (e.g. /ext/subghz/signal.sub)")
+                val output = fileSystem.executeCli("subghz tx $path").getOrThrow()
+                CommandResultData(
+                    content = output,
+                    message = "Transmitted Sub-GHz signal: $path"
+                )
+            }
+
+            CommandAction.IR_TRANSMIT -> {
+                val path = command.args.path
+                val signalName = command.args.signalName
+                if (path != null) {
+                    val cmd = if (signalName != null) "ir tx $path $signalName" else "ir tx $path"
+                    val output = fileSystem.executeCli(cmd).getOrThrow()
+                    CommandResultData(
+                        content = output,
+                        message = "Transmitted IR signal from: $path${signalName?.let { " ($it)" } ?: ""}"
+                    )
+                } else {
+                    throw IllegalArgumentException("IR file path required (e.g. /ext/infrared/remote.ir)")
+                }
+            }
+
+            CommandAction.NFC_EMULATE -> {
+                val path = command.args.path
+                    ?: throw IllegalArgumentException("NFC file path required (e.g. /ext/nfc/card.nfc)")
+                val output = fileSystem.executeCli("nfc emulate $path").getOrThrow()
+                CommandResultData(
+                    content = output,
+                    message = "Started NFC emulation: $path"
+                )
+            }
+
+            CommandAction.RFID_EMULATE -> {
+                val path = command.args.path
+                    ?: throw IllegalArgumentException("RFID file path required (e.g. /ext/lfrfid/tag.rfid)")
+                val output = fileSystem.executeCli("rfid emulate $path").getOrThrow()
+                CommandResultData(
+                    content = output,
+                    message = "Started RFID emulation: $path"
+                )
+            }
+
+            CommandAction.IBUTTON_EMULATE -> {
+                val path = command.args.path
+                    ?: throw IllegalArgumentException("iButton file path required (e.g. /ext/ibutton/key.ibtn)")
+                val output = fileSystem.executeCli("ibutton emulate $path").getOrThrow()
+                CommandResultData(
+                    content = output,
+                    message = "Started iButton emulation: $path"
+                )
+            }
+
+            CommandAction.BADUSB_EXECUTE -> {
+                val path = command.args.path
+                    ?: throw IllegalArgumentException("BadUSB script path required (e.g. /ext/badusb/script.txt)")
+                val output = fileSystem.executeCli("badusb run $path").getOrThrow()
+                CommandResultData(
+                    content = output,
+                    message = "Executing BadUSB script: $path"
+                )
+            }
+
+            CommandAction.BLE_SPAM -> {
+                val appArgs = command.args.appArgs ?: command.args.command ?: ""
+                val cmd = if (appArgs.isNotBlank()) "ble_spam $appArgs" else "ble_spam"
+                val output = fileSystem.executeCli(cmd).getOrThrow()
+                CommandResultData(
+                    content = output,
+                    message = if (appArgs.contains("stop", ignoreCase = true))
+                        "Stopped BLE spam" else "Started BLE spam"
+                )
+            }
+
+            CommandAction.LED_CONTROL -> {
+                val r = command.args.red ?: 0
+                val g = command.args.green ?: 0
+                val b = command.args.blue ?: 0
+                val output = fileSystem.executeCli("led $r $g $b").getOrThrow()
+                CommandResultData(
+                    content = output,
+                    message = "LED set to RGB($r, $g, $b)"
+                )
+            }
+
+            CommandAction.VIBRO_CONTROL -> {
+                val on = command.args.enabled ?: true
+                val output = fileSystem.executeCli("vibro ${if (on) "1" else "0"}").getOrThrow()
+                CommandResultData(
+                    content = output,
+                    message = if (on) "Vibration on" else "Vibration off"
+                )
+            }
         }
     }
 
