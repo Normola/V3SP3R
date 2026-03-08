@@ -3,6 +3,7 @@ package com.vesper.flipper.ui.viewmodel
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.util.Base64
 import androidx.lifecycle.ViewModel
@@ -176,6 +177,12 @@ class ChatViewModel @Inject constructor(
         var scaledBitmap: Bitmap? = null
 
         try {
+            // Check if this is a video — extract a frame instead of decoding as image
+            val detectedType = context.contentResolver.getType(uri)
+            if (detectedType != null && detectedType.startsWith("video/")) {
+                return@withContext extractVideoFrame(uri)
+            }
+
             // Check file size first to prevent OOM
             val fileSize = context.contentResolver.openInputStream(uri)?.use { it.available() } ?: 0
             if (fileSize > MAX_IMAGE_FILE_SIZE) {
@@ -268,6 +275,52 @@ class ChatViewModel @Inject constructor(
         }
 
         return Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true)
+    }
+
+    /**
+     * Extract a representative frame from a video URI.
+     * Grabs a frame at 1 second (or the first available frame) and
+     * converts it to an ImageAttachment so the AI can "see" what
+     * the user recorded.
+     */
+    private suspend fun extractVideoFrame(uri: Uri): ImageAttachment? = withContext(Dispatchers.IO) {
+        var retriever: MediaMetadataRetriever? = null
+        var frameBitmap: Bitmap? = null
+        var scaledBitmap: Bitmap? = null
+        try {
+            retriever = MediaMetadataRetriever().apply {
+                setDataSource(context, uri)
+            }
+            // Grab frame at 1 second; falls back to nearest keyframe
+            frameBitmap = retriever.getFrameAtTime(
+                1_000_000L, // 1 second in microseconds
+                MediaMetadataRetriever.OPTION_CLOSEST_SYNC
+            ) ?: retriever.getFrameAtTime() // fallback: any frame
+            ?: return@withContext null
+
+            scaledBitmap = scaleBitmap(frameBitmap, MAX_IMAGE_SIZE)
+
+            val outputStream = java.io.ByteArrayOutputStream(64 * 1024)
+            scaledBitmap.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, outputStream)
+            val base64Data = Base64.encodeToString(outputStream.toByteArray(), Base64.NO_WRAP)
+            outputStream.reset()
+
+            ImageAttachment(
+                base64Data = base64Data,
+                mimeType = "image/jpeg",
+                localUri = uri,
+                width = scaledBitmap.width,
+                height = scaledBitmap.height
+            )
+        } catch (_: Exception) {
+            null
+        } finally {
+            if (scaledBitmap != null && scaledBitmap != frameBitmap) {
+                scaledBitmap.recycle()
+            }
+            frameBitmap?.recycle()
+            try { retriever?.release() } catch (_: Exception) {}
+        }
     }
 
     fun sendMessage() {
