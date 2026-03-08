@@ -59,7 +59,6 @@ import kotlinx.serialization.json.jsonPrimitive
 @Composable
 fun ChatScreen(
     viewModel: ChatViewModel = hiltViewModel(),
-    onNavigateToFiles: () -> Unit,
     onNavigateToAudit: () -> Unit
 ) {
     val conversationState by viewModel.conversationState.collectAsState()
@@ -91,8 +90,6 @@ fun ChatScreen(
     val voicePartialResult by viewModel.voicePartialResult.collectAsState()
     val voiceError by viewModel.voiceError.collectAsState()
     var hasMicPermission by remember { mutableStateOf(false) }
-    var showOverflowMenu by remember { mutableStateOf(false) }
-
     // Microphone permission launcher
     val micPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -212,39 +209,19 @@ fun ChatScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = onNavigateToAudit) {
+                        Icon(
+                            Icons.Default.Receipt,
+                            contentDescription = "Audit Log",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     IconButton(onClick = { viewModel.startNewSession() }) {
                         Icon(
                             Icons.Default.Add,
                             contentDescription = "New Chat",
                             tint = VesperOrange
                         )
-                    }
-                    Box {
-                        IconButton(onClick = { showOverflowMenu = true }) {
-                            Icon(
-                                Icons.Default.MoreVert,
-                                contentDescription = "More"
-                            )
-                        }
-                        DropdownMenu(
-                            expanded = showOverflowMenu,
-                            onDismissRequest = { showOverflowMenu = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("File Browser") },
-                                onClick = {
-                                    showOverflowMenu = false
-                                    onNavigateToFiles()
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Audit Log") },
-                                onClick = {
-                                    showOverflowMenu = false
-                                    onNavigateToAudit()
-                                }
-                            )
-                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(

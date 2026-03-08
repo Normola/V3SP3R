@@ -42,7 +42,8 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DeviceScreen(
-    viewModel: DeviceViewModel = hiltViewModel()
+    viewModel: DeviceViewModel = hiltViewModel(),
+    onNavigateToFiles: () -> Unit = {}
 ) {
     val connectionState by viewModel.connectionState.collectAsState()
     val discoveredDevices by viewModel.discoveredDevices.collectAsState()
@@ -66,6 +67,13 @@ fun DeviceScreen(
                 },
                 actions = {
                     if (connectionState is ConnectionState.Connected) {
+                        IconButton(onClick = onNavigateToFiles) {
+                            Icon(
+                                Icons.Default.Folder,
+                                contentDescription = "File Browser",
+                                tint = VesperOrange
+                            )
+                        }
                         IconButton(
                             onClick = { viewModel.refreshDeviceInfo() },
                             enabled = !isRefreshing

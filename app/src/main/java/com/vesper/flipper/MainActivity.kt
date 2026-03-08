@@ -139,13 +139,17 @@ fun VesperApp() {
                     val navBackStackEntry by navController.currentBackStackEntryAsState()
                     val currentDestination = navBackStackEntry?.destination
 
-                    // Sub-screens launched from Chat's overflow menu
-                    val chatSubScreens = setOf(Screen.Files.route, Screen.Audit.route)
+                    // Map sub-screens to their parent bottom-nav tab
+                    val subScreenParents = mapOf(
+                        Screen.Audit.route to Screen.Chat.route,
+                        Screen.Files.route to Screen.Device.route
+                    )
                     val currentRoute = currentDestination?.route
+                    val effectiveRoute = subScreenParents[currentRoute] ?: currentRoute
 
                     screens.forEach { screen ->
-                        val selected = if (screen == Screen.Chat && currentRoute in chatSubScreens) {
-                            true  // Highlight Chat tab when on Files/Audit
+                        val selected = if (screen.route == effectiveRoute) {
+                            true
                         } else {
                             currentDestination?.hierarchy?.any { it.route == screen.route } == true
                         }
@@ -192,9 +196,6 @@ fun VesperApp() {
             ) {
                 composable(Screen.Chat.route) {
                     ChatScreen(
-                        onNavigateToFiles = {
-                            navController.navigate(Screen.Files.route)
-                        },
                         onNavigateToAudit = {
                             navController.navigate(Screen.Audit.route)
                         }
@@ -216,7 +217,11 @@ fun VesperApp() {
                     AuditScreen()
                 }
                 composable(Screen.Device.route) {
-                    DeviceScreen()
+                    DeviceScreen(
+                        onNavigateToFiles = {
+                            navController.navigate(Screen.Files.route)
+                        }
+                    )
                 }
                 composable(Screen.Settings.route) {
                     SettingsScreen()
