@@ -18,9 +18,9 @@ import androidx.compose.ui.unit.sp
 // ═══════════════════════════════════════════════════════════
 
 // Primary: Wine Red — the blood of the machine
-val VesperWine = Color(0xFF8B2252)           // Deep wine / claret
-val VesperWineLight = Color(0xFFAD3B6B)      // Lighter wine for highlights
-val VesperWineDark = Color(0xFF5E1637)        // Darker wine for pressed states
+val VesperWine = Color(0xFF8B2038)           // True wine / claret red
+val VesperWineLight = Color(0xFFAD3B50)      // Lighter wine for highlights
+val VesperWineDark = Color(0xFF5E1625)        // Darker wine for pressed states
 
 // Legacy alias — keeps existing references working
 val VesperOrange = VesperWine

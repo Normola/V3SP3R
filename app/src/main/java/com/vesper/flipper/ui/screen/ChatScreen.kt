@@ -377,19 +377,43 @@ private fun ChatMessageItem(message: ChatMessage) {
         horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
     ) {
         if (!isUser) {
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(if (isAssistant) VesperGold else MaterialTheme.colorScheme.secondary),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = if (isAssistant) Icons.Default.SmartToy else Icons.Default.Terminal,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(20.dp)
-                )
+            if (isAssistant) {
+                // Vesper monogram avatar — wine circle with gold V
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(
+                            brush = Brush.radialGradient(
+                                colors = listOf(VesperWine, VesperWineDark)
+                            )
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "V",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Light,
+                        fontFamily = FontFamily.Serif,
+                        color = VesperGold
+                    )
+                }
+            } else {
+                // Tool avatar
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.secondary),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Terminal,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
             }
             Spacer(modifier = Modifier.width(8.dp))
         }
@@ -543,15 +567,20 @@ private fun LoadingIndicator(progress: AgentProgress?) {
         Box(
             modifier = Modifier
                 .size(32.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(VesperGold),
+                .clip(CircleShape)
+                .background(
+                    brush = Brush.radialGradient(
+                        colors = listOf(VesperWine, VesperWineDark)
+                    )
+                ),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                Icons.Default.SmartToy,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(20.dp)
+            Text(
+                "V",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Light,
+                fontFamily = FontFamily.Serif,
+                color = VesperGold
             )
         }
         Spacer(modifier = Modifier.width(8.dp))

@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Vesper Brand Colors — Classy Mythic Cyberpunk Bond -->
-    <color name="vesper_primary">#8B2252</color>
-    <color name="vesper_primary_dark">#5E1637</color>
+    <color name="vesper_primary">#8B2038</color>
+    <color name="vesper_primary_dark">#5E1625</color>
     <color name="vesper_secondary">#1A1F2E</color>
     <color name="vesper_accent">#D4AF37</color>
 
