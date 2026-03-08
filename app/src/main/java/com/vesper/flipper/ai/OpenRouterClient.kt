@@ -1022,7 +1022,7 @@ class OpenRouterClient @Inject constructor(
             type = "function",
             function = OpenRouterToolFunction(
                 name = "execute_command",
-                description = "Execute a Flipper operation. Supports file ops, device queries, FapHub, CLI commands, payload forging, resource search, vault scan, runbooks, AND hardware control: launch apps, transmit Sub-GHz/IR signals, emulate NFC/RFID/iButton, run BadUSB, BLE spam, LED and vibro control.",
+                description = "Execute a Flipper operation. Supports file ops, device queries, FapHub, CLI commands, payload forging, resource search, repo browsing (browse_repo to list files via GitHub API), resource download (download_resource to fetch files to Flipper), vault scan, runbooks, AND hardware control: launch apps, transmit Sub-GHz/IR signals, emulate NFC/RFID/iButton, run BadUSB, BLE spam, LED and vibro control.",
                 parameters = JsonObject(mapOf(
                     "type" to JsonPrimitive("object"),
                     "properties" to JsonObject(mapOf(
@@ -1056,7 +1056,9 @@ class OpenRouterClient @Inject constructor(
                                 JsonPrimitive("badusb_execute"),
                                 JsonPrimitive("ble_spam"),
                                 JsonPrimitive("led_control"),
-                                JsonPrimitive("vibro_control")
+                                JsonPrimitive("vibro_control"),
+                                JsonPrimitive("browse_repo"),
+                                JsonPrimitive("download_resource")
                             )),
                             "description" to JsonPrimitive("The action to perform on the Flipper Zero")
                         )),
@@ -1066,7 +1068,7 @@ class OpenRouterClient @Inject constructor(
                                 "command" to JsonObject(mapOf(
                                     "type" to JsonPrimitive("string"),
                                     "description" to JsonPrimitive(
-                                        "Primary text argument. For execute_cli: raw CLI command; for search_faphub/search_resources: query; for install_faphub_app: app id; for run_runbook: runbook id (link_health, input_smoke_test, recover_scan)."
+                                        "Primary text argument. For execute_cli: raw CLI command; for search_faphub/search_resources: query; for install_faphub_app: app id; for run_runbook: runbook id; for browse_repo: repo id (if repo_id not set)."
                                     )
                                 )),
                                 "query" to JsonObject(mapOf(
@@ -1091,7 +1093,7 @@ class OpenRouterClient @Inject constructor(
                                 )),
                                 "download_url" to JsonObject(mapOf(
                                     "type" to JsonPrimitive("string"),
-                                    "description" to JsonPrimitive("Optional direct .fap URL override for install_faphub_app")
+                                    "description" to JsonPrimitive("Direct download URL. For install_faphub_app: optional .fap URL override. For download_resource: required source URL (from browse_repo results).")
                                 )),
                                 "new_name" to JsonObject(mapOf(
                                     "type" to JsonPrimitive("string"),
@@ -1168,6 +1170,14 @@ class OpenRouterClient @Inject constructor(
                                 "blue" to JsonObject(mapOf(
                                     "type" to JsonPrimitive("integer"),
                                     "description" to JsonPrimitive("Blue LED value 0-255 for led_control")
+                                )),
+                                "repo_id" to JsonObject(mapOf(
+                                    "type" to JsonPrimitive("string"),
+                                    "description" to JsonPrimitive("Repository ID for browse_repo (e.g. 'irdb', 'subghz_bruteforce'). Use search_resources first to find IDs.")
+                                )),
+                                "sub_path" to JsonObject(mapOf(
+                                    "type" to JsonPrimitive("string"),
+                                    "description" to JsonPrimitive("Sub-path within repo for browse_repo (e.g. 'TVs/Samsung', 'ACs/LG')")
                                 ))
                             ))
                         )),
