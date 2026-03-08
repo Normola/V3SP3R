@@ -2,6 +2,7 @@ package com.vesper.flipper.ai
 
 import com.vesper.flipper.data.SettingsStore
 import com.vesper.flipper.data.database.ChatDao
+import com.vesper.flipper.data.database.ChatSessionSummary
 import com.vesper.flipper.data.database.ChatMessageEntity
 import com.vesper.flipper.domain.executor.CommandExecutor
 import com.vesper.flipper.domain.model.*
@@ -536,8 +537,43 @@ class VesperAgent @Inject constructor(
      * Clear conversation history
      */
     fun clearConversation() {
+        persistenceScope.launch {
+            chatDao.deleteSession(currentSessionId)
+        }
         auditService.endSession()
         startNewSession()
+    }
+
+    /**
+     * Get all saved chat sessions for the history drawer.
+     */
+    fun getSessions(): Flow<List<ChatSessionSummary>> = chatDao.getAllSessions()
+
+    /**
+     * Load a previous session by ID.
+     */
+    suspend fun loadSession(sessionId: String) {
+        val messages = chatDao.getMessagesForSessionSync(sessionId)
+        if (messages.isEmpty()) return
+        val restored = messages.mapNotNull { it.toDomainMessageOrNull() }
+        if (restored.isEmpty()) return
+        currentSessionId = sessionId
+        settingsStore.setLastChatSessionId(sessionId)
+        _conversationState.value = ConversationState(
+            messages = restored,
+            sessionId = sessionId
+        )
+    }
+
+    /**
+     * Delete a saved session from history.
+     */
+    suspend fun deleteSession(sessionId: String) {
+        chatDao.deleteSession(sessionId)
+        // If we deleted the current session, start fresh
+        if (sessionId == currentSessionId) {
+            startNewSession()
+        }
     }
 
     /**

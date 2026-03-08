@@ -38,12 +38,16 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.vesper.flipper.data.database.ChatSessionSummary
 import com.vesper.flipper.domain.model.*
 import com.vesper.flipper.ui.components.ApprovalDialog
 import com.vesper.flipper.ui.components.DiffViewer
 import com.vesper.flipper.ui.theme.*
 import com.vesper.flipper.ui.viewmodel.ChatViewModel
 import com.vesper.flipper.voice.SpeechState
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.booleanOrNull
@@ -57,7 +61,6 @@ fun ChatScreen(
     viewModel: ChatViewModel = hiltViewModel(),
     onNavigateToDevice: () -> Unit,
     onNavigateToSettings: () -> Unit,
-    onNavigateToOracle: () -> Unit,
     onNavigateToArsenal: () -> Unit,
     onNavigateToFiles: () -> Unit,
     onNavigateToPayloadLab: () -> Unit,
@@ -67,8 +70,11 @@ fun ChatScreen(
     val inputText by viewModel.inputText.collectAsState()
     val pendingImages by viewModel.pendingImages.collectAsState()
     val isProcessingImage by viewModel.isProcessingImage.collectAsState()
+    val sessionHistory by viewModel.sessionHistory.collectAsState()
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
+    var showDeleteConfirmation by remember { mutableStateOf(false) }
+    var showHistoryDrawer by remember { mutableStateOf(false) }
 
     // Photo picker launcher
     val photoPickerLauncher = rememberLauncherForActivityResult(
@@ -117,6 +123,58 @@ fun ChatScreen(
         )
     }
 
+    // Delete confirmation dialog
+    if (showDeleteConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmation = false },
+            icon = {
+                Icon(
+                    Icons.Default.DeleteSweep,
+                    contentDescription = null,
+                    tint = RiskHigh
+                )
+            },
+            title = { Text("Clear Chat") },
+            text = { Text("Delete this conversation? This cannot be undone.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteConfirmation = false
+                        viewModel.clearConversation()
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = RiskHigh)
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmation = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // Chat history bottom sheet
+    if (showHistoryDrawer) {
+        ChatHistorySheet(
+            sessions = sessionHistory,
+            currentSessionId = conversationState.sessionId,
+            onSelectSession = { sessionId ->
+                showHistoryDrawer = false
+                viewModel.loadSession(sessionId)
+            },
+            onDeleteSession = { sessionId ->
+                viewModel.deleteSession(sessionId)
+            },
+            onNewThread = {
+                showHistoryDrawer = false
+                viewModel.startNewSession()
+            },
+            onDismiss = { showHistoryDrawer = false }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -151,7 +209,17 @@ fun ChatScreen(
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    IconButton(onClick = { viewModel.clearConversation() }) {
+                    IconButton(onClick = { showHistoryDrawer = true }) {
+                        Icon(
+                            Icons.Default.History,
+                            contentDescription = "Chat History"
+                        )
+                    }
+                    IconButton(onClick = {
+                        if (conversationState.messages.isNotEmpty()) {
+                            showDeleteConfirmation = true
+                        }
+                    }) {
                         Icon(
                             Icons.Default.DeleteSweep,
                             contentDescription = "Clear"
@@ -168,13 +236,6 @@ fun ChatScreen(
                             expanded = showOverflowMenu,
                             onDismissRequest = { showOverflowMenu = false }
                         ) {
-                            DropdownMenuItem(
-                                text = { Text("Spectral Oracle") },
-                                onClick = {
-                                    showOverflowMenu = false
-                                    onNavigateToOracle()
-                                }
-                            )
                             DropdownMenuItem(
                                 text = { Text("Signal Arsenal") },
                                 onClick = {
@@ -951,6 +1012,155 @@ private fun ImagePreviewChip(
                     .size(16.dp),
                 tint = Color.White
             )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ChatHistorySheet(
+    sessions: List<ChatSessionSummary>,
+    currentSessionId: String,
+    onSelectSession: (String) -> Unit,
+    onDeleteSession: (String) -> Unit,
+    onNewThread: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val dateFormat = remember { SimpleDateFormat("MMM d, h:mm a", Locale.getDefault()) }
+    var sessionToDelete by remember { mutableStateOf<String?>(null) }
+
+    // Confirm delete for a history item
+    sessionToDelete?.let { id ->
+        AlertDialog(
+            onDismissRequest = { sessionToDelete = null },
+            title = { Text("Delete Chat") },
+            text = { Text("Delete this conversation from history?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onDeleteSession(id)
+                        sessionToDelete = null
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = RiskHigh)
+                ) { Text("Delete") }
+            },
+            dismissButton = {
+                TextButton(onClick = { sessionToDelete = null }) { Text("Cancel") }
+            }
+        )
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surface
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Chat History",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Button(
+                    onClick = onNewThread,
+                    colors = ButtonDefaults.buttonColors(containerColor = VesperAccent)
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("New Chat")
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            if (sessions.isEmpty()) {
+                Text(
+                    "No saved conversations yet.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 24.dp)
+                )
+            } else {
+                LazyColumn(
+                    modifier = Modifier.heightIn(max = 400.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(sessions, key = { it.sessionId }) { session ->
+                        val isCurrent = session.sessionId == currentSessionId
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onSelectSession(session.sessionId) },
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (isCurrent) {
+                                VesperAccent.copy(alpha = 0.15f)
+                            } else {
+                                MaterialTheme.colorScheme.surfaceVariant
+                            },
+                            border = if (isCurrent) BorderStroke(1.dp, VesperAccent) else null
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.Chat,
+                                    contentDescription = null,
+                                    tint = if (isCurrent) VesperAccent else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = dateFormat.format(Date(session.lastTimestamp)),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                    Text(
+                                        text = "${session.messageCount} messages",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                if (isCurrent) {
+                                    Surface(
+                                        shape = RoundedCornerShape(4.dp),
+                                        color = VesperAccent
+                                    ) {
+                                        Text(
+                                            "Active",
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = Color.White
+                                        )
+                                    }
+                                }
+                                if (!isCurrent) {
+                                    IconButton(
+                                        onClick = { sessionToDelete = session.sessionId },
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Close,
+                                            contentDescription = "Delete",
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }

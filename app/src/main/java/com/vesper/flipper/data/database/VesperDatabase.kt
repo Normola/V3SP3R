@@ -103,9 +103,25 @@ interface ChatDao {
     @Query("SELECT * FROM chat_messages WHERE sessionId = :sessionId ORDER BY timestamp ASC")
     suspend fun getMessagesForSessionSync(sessionId: String): List<ChatMessageEntity>
 
+    @Query("""
+        SELECT sessionId, MIN(timestamp) AS firstTimestamp, MAX(timestamp) AS lastTimestamp,
+               COUNT(*) AS messageCount
+        FROM chat_messages
+        GROUP BY sessionId
+        ORDER BY lastTimestamp DESC
+    """)
+    fun getAllSessions(): Flow<List<ChatSessionSummary>>
+
     @Query("DELETE FROM chat_messages WHERE sessionId = :sessionId")
     suspend fun deleteSession(sessionId: String)
 
     @Query("DELETE FROM chat_messages")
     suspend fun deleteAll()
 }
+
+data class ChatSessionSummary(
+    val sessionId: String,
+    val firstTimestamp: Long,
+    val lastTimestamp: Long,
+    val messageCount: Int
+)

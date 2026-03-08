@@ -139,12 +139,6 @@ Talk to your Flipper in plain English:
 - "What's my battery level?"
 - "Create a backup of all my IR remotes"
 
-### Oracle (Signal Intelligence)
-AI-powered analysis of captured signals:
-- Upload any .sub, .ir, or .nfc file
-- Get vulnerability assessments
-- Receive exploit suggestions
-
 ### Ops Center
 Operational control surface for connection reliability:
 - **Pipeline Health**: BLE/RPC/CLI readiness and diagnostics summary
@@ -254,7 +248,6 @@ More advanced:
 ├─────────────────────────────────────────┤
 │  UI Layer (Jetpack Compose)             │
 │  ├── Chat Screen                        │
-│  ├── Spectral Oracle                    │
 │  ├── Ops Center                         │
 │  ├── Alchemy Lab                        │
 │  ├── Payload Lab                        │
@@ -286,7 +279,6 @@ app/src/main/java/com/vesper/flipper/
 │   ├── FlipperBleService.kt
 │   └── FlipperFileSystem.kt
 ├── domain/model/          # Data models
-│   ├── Oracle.kt          # Signal intelligence
 │   ├── Alchemy.kt         # Signal synthesis
 │   ├── Chimera.kt         # Signal fusion
 │   └── Signal.kt          # Capture formats
@@ -296,7 +288,6 @@ app/src/main/java/com/vesper/flipper/
 │   ├── screen/            # UI screens
 │   │   ├── ChatScreen.kt
 │   │   ├── OpsCenterScreen.kt
-│   │   ├── SpectralOracleScreen.kt
 │   │   ├── AlchemyLabScreen.kt
 │   │   └── PayloadLabScreen.kt
 │   └── viewmodel/         # State management

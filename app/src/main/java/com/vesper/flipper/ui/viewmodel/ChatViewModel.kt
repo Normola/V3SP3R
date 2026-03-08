@@ -11,6 +11,7 @@ import com.vesper.flipper.ai.VesperAgent
 import com.vesper.flipper.ble.ConnectionState
 import com.vesper.flipper.ble.FlipperBleService
 import com.vesper.flipper.ble.FlipperDevice
+import com.vesper.flipper.data.database.ChatSessionSummary
 import com.vesper.flipper.domain.model.*
 import com.vesper.flipper.voice.SpeechRecognitionHelper
 import com.vesper.flipper.voice.SpeechState
@@ -319,6 +320,23 @@ class ChatViewModel @Inject constructor(
     }
 
     fun startNewSession(deviceName: String? = null) {
+        _pendingImages.value = emptyList()
         vesperAgent.startNewSession(deviceName)
+    }
+
+    val sessionHistory: StateFlow<List<ChatSessionSummary>> =
+        vesperAgent.getSessions()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun loadSession(sessionId: String) {
+        viewModelScope.launch {
+            vesperAgent.loadSession(sessionId)
+        }
+    }
+
+    fun deleteSession(sessionId: String) {
+        viewModelScope.launch {
+            vesperAgent.deleteSession(sessionId)
+        }
     }
 }

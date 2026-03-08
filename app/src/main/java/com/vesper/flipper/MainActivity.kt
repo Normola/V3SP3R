@@ -180,9 +180,6 @@ fun VesperApp() {
                         onNavigateToSettings = {
                             navController.navigate(Screen.Settings.route)
                         },
-                        onNavigateToOracle = {
-                            navController.navigate(Screen.Oracle.route)
-                        },
                         onNavigateToArsenal = {
                             navController.navigate(Screen.Arsenal.route)
                         },
@@ -196,9 +193,6 @@ fun VesperApp() {
                             navController.navigate(Screen.Audit.route)
                         }
                     )
-                }
-                composable(Screen.Oracle.route) {
-                    SpectralOracleScreen()
                 }
                 composable(Screen.Arsenal.route) {
                     SignalArsenalScreen()
