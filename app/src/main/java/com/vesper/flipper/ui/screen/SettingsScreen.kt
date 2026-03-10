@@ -21,6 +21,7 @@ import com.vesper.flipper.data.SettingsStore
 import com.vesper.flipper.domain.model.Permission
 import com.vesper.flipper.ui.theme.*
 import com.vesper.flipper.ui.viewmodel.SettingsViewModel
+import com.vesper.flipper.voice.ElevenLabsTtsService
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -392,6 +393,108 @@ fun SettingsScreen(
                         subtitle = "Vibrate on confirmations",
                         checked = state.hapticFeedback,
                         onCheckedChange = { viewModel.setHapticFeedback(it) }
+                    )
+                }
+            }
+
+            // Voice / TTS Section
+            item {
+                var showElevenLabsKey by remember { mutableStateOf(false) }
+
+                SettingsSection(title = "Voice (ElevenLabs TTS)") {
+                    SettingsSwitch(
+                        title = "Enable Voice Output",
+                        subtitle = "Speak agent responses using ElevenLabs",
+                        checked = state.ttsEnabled,
+                        onCheckedChange = { viewModel.setTtsEnabled(it) }
+                    )
+
+                    Divider(modifier = Modifier.padding(vertical = 8.dp))
+
+                    OutlinedTextField(
+                        value = state.elevenLabsApiKey,
+                        onValueChange = { viewModel.setElevenLabsApiKey(it) },
+                        label = { Text("ElevenLabs API Key") },
+                        modifier = Modifier.fillMaxWidth(),
+                        visualTransformation = if (showElevenLabsKey) {
+                            VisualTransformation.None
+                        } else {
+                            PasswordVisualTransformation()
+                        },
+                        trailingIcon = {
+                            IconButton(onClick = { showElevenLabsKey = !showElevenLabsKey }) {
+                                Icon(
+                                    if (showElevenLabsKey) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                    contentDescription = if (showElevenLabsKey) "Hide" else "Show"
+                                )
+                            }
+                        },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    Text(
+                        text = "Free at elevenlabs.io — 10k characters/month.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Voice Selection
+                    var voiceExpanded by remember { mutableStateOf(false) }
+                    val currentVoice = ElevenLabsTtsService.AVAILABLE_VOICES
+                        .find { it.id == state.ttsVoiceId }
+
+                    ExposedDropdownMenuBox(
+                        expanded = voiceExpanded,
+                        onExpandedChange = { voiceExpanded = it }
+                    ) {
+                        OutlinedTextField(
+                            value = currentVoice?.let { "${it.name} — ${it.description}" } ?: "Charlotte",
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Voice") },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .menuAnchor(),
+                            trailingIcon = {
+                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = voiceExpanded)
+                            },
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        ExposedDropdownMenu(
+                            expanded = voiceExpanded,
+                            onDismissRequest = { voiceExpanded = false }
+                        ) {
+                            ElevenLabsTtsService.AVAILABLE_VOICES.forEach { voice ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Column {
+                                            Text(voice.name, fontWeight = FontWeight.Medium)
+                                            Text(
+                                                voice.description,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    },
+                                    onClick = {
+                                        viewModel.setTtsVoiceId(voice.id)
+                                        voiceExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    SettingsSwitch(
+                        title = "Auto-Speak",
+                        subtitle = "Automatically read agent responses aloud",
+                        checked = state.ttsAutoSpeak,
+                        onCheckedChange = { viewModel.setTtsAutoSpeak(it) }
                     )
                 }
             }

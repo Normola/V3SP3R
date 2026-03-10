@@ -45,6 +45,7 @@ import com.vesper.flipper.ui.components.DiffViewer
 import com.vesper.flipper.ui.theme.*
 import com.vesper.flipper.ui.viewmodel.ChatViewModel
 import com.vesper.flipper.voice.SpeechState
+import com.vesper.flipper.voice.TtsState
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -126,6 +127,9 @@ fun ChatScreen(
             videoLauncher.launch(uri)
         }
     }
+
+    // TTS state
+    val ttsState by viewModel.ttsState.collectAsState()
 
     // Voice input state
     val voiceState by viewModel.voiceState.collectAsState()
@@ -325,7 +329,12 @@ fun ChatScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(conversationState.messages) { message ->
-                        ChatMessageItem(message = message)
+                        ChatMessageItem(
+                            message = message,
+                            ttsState = ttsState,
+                            onSpeak = { viewModel.speakText(it) },
+                            onStopSpeaking = { viewModel.stopSpeaking() }
+                        )
                     }
 
                     if (conversationState.isLoading) {
@@ -442,7 +451,12 @@ private fun SuggestionChip(text: String, onClick: (String) -> Unit) {
 }
 
 @Composable
-private fun ChatMessageItem(message: ChatMessage) {
+private fun ChatMessageItem(
+    message: ChatMessage,
+    ttsState: TtsState = TtsState.Idle,
+    onSpeak: ((String) -> Unit)? = null,
+    onStopSpeaking: (() -> Unit)? = null
+) {
     val isUser = message.role == MessageRole.USER
     val isAssistant = message.role == MessageRole.ASSISTANT
     val isTool = message.role == MessageRole.TOOL
@@ -574,6 +588,42 @@ private fun ChatMessageItem(message: ChatMessage) {
                     color = RiskMedium,
                     modifier = Modifier.padding(top = 4.dp)
                 )
+            }
+
+            // TTS speaker button for assistant text messages
+            if (isAssistant && message.content.isNotBlank() && message.toolCalls.isNullOrEmpty() && onSpeak != null) {
+                val isSpeaking = ttsState is TtsState.Speaking
+                val isLoading = ttsState is TtsState.Loading
+                Row(
+                    modifier = Modifier.padding(top = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = {
+                            if (isSpeaking) {
+                                onStopSpeaking?.invoke()
+                            } else {
+                                onSpeak(message.content)
+                            }
+                        },
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(14.dp),
+                                strokeWidth = 2.dp,
+                                color = VesperOrange
+                            )
+                        } else {
+                            Icon(
+                                imageVector = if (isSpeaking) Icons.Default.Stop else Icons.Default.VolumeUp,
+                                contentDescription = if (isSpeaking) "Stop" else "Speak",
+                                modifier = Modifier.size(16.dp),
+                                tint = VesperOrange
+                            )
+                        }
+                    }
+                }
             }
         }
 

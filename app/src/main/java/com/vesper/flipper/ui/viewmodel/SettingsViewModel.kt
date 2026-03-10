@@ -25,7 +25,12 @@ data class SettingsState(
     val autoApproveMedium: Boolean = false,
     val autoApproveHigh: Boolean = false,
     val auditRetentionDays: Int = 30,
-    val activePermissions: List<Permission> = emptyList()
+    val activePermissions: List<Permission> = emptyList(),
+    // TTS
+    val elevenLabsApiKey: String = "",
+    val ttsEnabled: Boolean = false,
+    val ttsVoiceId: String = SettingsStore.DEFAULT_TTS_VOICE,
+    val ttsAutoSpeak: Boolean = false
 )
 
 @HiltViewModel
@@ -77,10 +82,30 @@ class SettingsViewModel @Inject constructor(
             }.combine(
                 combine(
                     settingsStore.autoApproveMedium,
-                    settingsStore.autoApproveHigh
-                ) { medium, high -> medium to high }
-            ) { base, (medium, high) ->
-                base.copy(autoApproveMedium = medium, autoApproveHigh = high)
+                    settingsStore.autoApproveHigh,
+                    settingsStore.elevenLabsApiKey,
+                    settingsStore.ttsEnabled,
+                    settingsStore.ttsVoiceId,
+                    settingsStore.ttsAutoSpeak
+                ) { values ->
+                    TtsSettingsBundle(
+                        autoApproveMedium = values[0] as Boolean,
+                        autoApproveHigh = values[1] as Boolean,
+                        elevenLabsApiKey = (values[2] as? String) ?: "",
+                        ttsEnabled = values[3] as Boolean,
+                        ttsVoiceId = values[4] as String,
+                        ttsAutoSpeak = values[5] as Boolean
+                    )
+                }
+            ) { base, tts ->
+                base.copy(
+                    autoApproveMedium = tts.autoApproveMedium,
+                    autoApproveHigh = tts.autoApproveHigh,
+                    elevenLabsApiKey = tts.elevenLabsApiKey,
+                    ttsEnabled = tts.ttsEnabled,
+                    ttsVoiceId = tts.ttsVoiceId,
+                    ttsAutoSpeak = tts.ttsAutoSpeak
+                )
             }.collect { settings ->
                 _state.update { it.copy(
                     apiKey = settings.apiKey,
@@ -93,7 +118,11 @@ class SettingsViewModel @Inject constructor(
                     autoApproveHigh = settings.autoApproveHigh,
                     hapticFeedback = settings.hapticFeedback,
                     darkMode = settings.darkMode,
-                    auditRetentionDays = settings.auditRetentionDays
+                    auditRetentionDays = settings.auditRetentionDays,
+                    elevenLabsApiKey = settings.elevenLabsApiKey,
+                    ttsEnabled = settings.ttsEnabled,
+                    ttsVoiceId = settings.ttsVoiceId,
+                    ttsAutoSpeak = settings.ttsAutoSpeak
                 )}
             }
         }
@@ -220,4 +249,42 @@ class SettingsViewModel @Inject constructor(
         val path = _state.value.defaultProjectPath
         permissionService.grantProjectScope(path)
     }
+
+    // TTS settings
+    fun setElevenLabsApiKey(key: String) {
+        viewModelScope.launch {
+            settingsStore.setElevenLabsApiKey(key)
+            _state.update { it.copy(elevenLabsApiKey = key) }
+        }
+    }
+
+    fun setTtsEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsStore.setTtsEnabled(enabled)
+            _state.update { it.copy(ttsEnabled = enabled) }
+        }
+    }
+
+    fun setTtsVoiceId(voiceId: String) {
+        viewModelScope.launch {
+            settingsStore.setTtsVoiceId(voiceId)
+            _state.update { it.copy(ttsVoiceId = voiceId) }
+        }
+    }
+
+    fun setTtsAutoSpeak(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsStore.setTtsAutoSpeak(enabled)
+            _state.update { it.copy(ttsAutoSpeak = enabled) }
+        }
+    }
 }
+
+private data class TtsSettingsBundle(
+    val autoApproveMedium: Boolean,
+    val autoApproveHigh: Boolean,
+    val elevenLabsApiKey: String,
+    val ttsEnabled: Boolean,
+    val ttsVoiceId: String,
+    val ttsAutoSpeak: Boolean
+)

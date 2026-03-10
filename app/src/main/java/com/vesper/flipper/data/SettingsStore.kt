@@ -193,9 +193,57 @@ class SettingsStore @Inject constructor(
         }
     }
 
+    // ElevenLabs TTS
+    private val ELEVENLABS_API_KEY = stringPreferencesKey("elevenlabs_api_key")
+    private val TTS_ENABLED = booleanPreferencesKey("tts_enabled")
+    private val TTS_VOICE_ID = stringPreferencesKey("tts_voice_id")
+    private val TTS_AUTO_SPEAK = booleanPreferencesKey("tts_auto_speak")
+
+    val elevenLabsApiKey: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[ELEVENLABS_API_KEY]
+    }
+
+    suspend fun setElevenLabsApiKey(key: String) {
+        context.dataStore.edit { preferences ->
+            preferences[ELEVENLABS_API_KEY] = key
+        }
+    }
+
+    val ttsEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[TTS_ENABLED] ?: false
+    }
+
+    suspend fun setTtsEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[TTS_ENABLED] = enabled
+        }
+    }
+
+    val ttsVoiceId: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[TTS_VOICE_ID] ?: DEFAULT_TTS_VOICE
+    }
+
+    suspend fun setTtsVoiceId(voiceId: String) {
+        context.dataStore.edit { preferences ->
+            preferences[TTS_VOICE_ID] = voiceId
+        }
+    }
+
+    val ttsAutoSpeak: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[TTS_AUTO_SPEAK] ?: false
+    }
+
+    suspend fun setTtsAutoSpeak(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[TTS_AUTO_SPEAK] = enabled
+        }
+    }
+
     companion object {
         // Default to the largest Hermes 4 model on OpenRouter.
         const val DEFAULT_MODEL = "nousresearch/hermes-4-405b"
+        // Charlotte: Swedish, seductive — default TTS voice
+        const val DEFAULT_TTS_VOICE = "iP95p4xoKVk53GoZ742B"
         const val DEFAULT_AI_MAX_ITERATIONS = 10
         const val MIN_AI_MAX_ITERATIONS = 4
         const val MAX_AI_MAX_ITERATIONS = 20

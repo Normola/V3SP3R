@@ -14,8 +14,11 @@ import com.vesper.flipper.ble.FlipperBleService
 import com.vesper.flipper.ble.FlipperDevice
 import com.vesper.flipper.data.database.ChatSessionSummary
 import com.vesper.flipper.domain.model.*
+import com.vesper.flipper.data.SettingsStore
+import com.vesper.flipper.voice.ElevenLabsTtsService
 import com.vesper.flipper.voice.SpeechRecognitionHelper
 import com.vesper.flipper.voice.SpeechState
+import com.vesper.flipper.voice.TtsState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -28,6 +31,8 @@ import javax.inject.Inject
 @HiltViewModel
 class ChatViewModel @Inject constructor(
     private val vesperAgent: VesperAgent,
+    private val ttsService: ElevenLabsTtsService,
+    private val settingsStore: SettingsStore,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -51,13 +56,15 @@ class ChatViewModel @Inject constructor(
     val voiceError: StateFlow<String?> = _voiceError.asStateFlow()
     private var approvalDecisionInFlight = false
 
+    // TTS state
+    val ttsState: StateFlow<TtsState> = ttsService.state
+
     init {
         // Listen for voice recognition results
         viewModelScope.launch {
             speechRecognitionHelper.state.collect { state ->
                 when (state) {
                     is SpeechState.Result -> {
-                        // Append recognized text to input
                         val currentText = _inputText.value
                         val newText = if (currentText.isBlank()) {
                             state.text
@@ -74,6 +81,30 @@ class ChatViewModel @Inject constructor(
                         _voiceError.value = null
                     }
                 }
+            }
+        }
+
+        // Auto-speak: watch for new completed assistant messages
+        viewModelScope.launch {
+            var lastMessageCount = 0
+            conversationState.collect { state ->
+                val messages = state.messages
+                if (messages.size > lastMessageCount && !state.isLoading) {
+                    val lastMsg = messages.lastOrNull()
+                    if (lastMsg != null &&
+                        lastMsg.role == MessageRole.ASSISTANT &&
+                        lastMsg.status == MessageStatus.COMPLETE &&
+                        lastMsg.content.isNotBlank() &&
+                        lastMsg.toolCalls.isNullOrEmpty()
+                    ) {
+                        val autoSpeak = settingsStore.ttsAutoSpeak.first()
+                        val ttsEnabled = settingsStore.ttsEnabled.first()
+                        if (autoSpeak && ttsEnabled) {
+                            speakText(lastMsg.content)
+                        }
+                    }
+                }
+                lastMessageCount = messages.size
             }
         }
     }
@@ -119,9 +150,26 @@ class ChatViewModel @Inject constructor(
         _voiceError.value = null
     }
 
+    /**
+     * Speak text using ElevenLabs TTS
+     */
+    fun speakText(text: String) {
+        viewModelScope.launch {
+            ttsService.speak(text)
+        }
+    }
+
+    /**
+     * Stop current TTS playback
+     */
+    fun stopSpeaking() {
+        ttsService.stop()
+    }
+
     override fun onCleared() {
         super.onCleared()
         speechRecognitionHelper.destroy()
+        ttsService.stop()
     }
 
     fun updateInput(text: String) {
