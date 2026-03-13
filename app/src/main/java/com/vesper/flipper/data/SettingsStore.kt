@@ -233,6 +233,7 @@ class SettingsStore @Inject constructor(
     private val GLASSES_BRIDGE_URL = stringPreferencesKey("glasses_bridge_url")
     private val GLASSES_AUTO_SEND = booleanPreferencesKey("glasses_auto_send")
     private val GLASSES_AUTO_CONNECT = booleanPreferencesKey("glasses_auto_connect")
+    private val GLASSES_SAILOR_MOUTH = booleanPreferencesKey("glasses_sailor_mouth")
 
     val glassesEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
         preferences[GLASSES_ENABLED] ?: false
@@ -275,6 +276,16 @@ class SettingsStore @Inject constructor(
     suspend fun setGlassesAutoConnect(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[GLASSES_AUTO_CONNECT] = enabled
+        }
+    }
+
+    val glassesSailorMouth: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[GLASSES_SAILOR_MOUTH] ?: false
+    }
+
+    suspend fun setGlassesSailorMouth(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[GLASSES_SAILOR_MOUTH] = enabled
         }
     }
 

@@ -517,6 +517,15 @@ fun SettingsScreen(
                             checked = state.glassesAutoConnect,
                             onCheckedChange = { viewModel.setGlassesAutoConnect(it) }
                         )
+
+                        Divider(modifier = Modifier.padding(vertical = 8.dp))
+
+                        SettingsSwitch(
+                            title = "Sailor Mouth Mode",
+                            subtitle = "Vesper swears like a hacker. Not for the faint of heart.",
+                            checked = state.glassesSailorMouth,
+                            onCheckedChange = { viewModel.setGlassesSailorMouth(it) }
+                        )
                     }
                 }
             }

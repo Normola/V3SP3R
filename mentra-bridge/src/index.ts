@@ -26,7 +26,8 @@ interface GlassesMessage {
     | "CAMERA_PHOTO"
     | "VOICE_COMMAND"
     | "AI_RESPONSE"
-    | "STATUS_UPDATE";
+    | "STATUS_UPDATE"
+    | "CONFIG";
   text?: string;
   imageBase64?: string;
   imageMimeType?: string;
@@ -64,6 +65,29 @@ export function broadcast(targets: WebSocket[], message: GlassesMessage) {
       ws.send(payload);
     }
   }
+}
+
+// ==================== Sailor Mouth Mode ====================
+
+let sailorMouthEnabled = false;
+
+const SAILOR_GREETINGS = [
+  "sup bitch, what we hackin?",
+  "HACK THE PLANET, MOTHERFUCKER!",
+  "yo what's good, you beautiful degenerate",
+  "ready to fuck shit up, captain",
+  "at your service, you glorious bastard",
+  "hell yeah, let's break some shit",
+  "what's crackin, you magnificent asshole",
+  "bout damn time you called me",
+  "let's go, you crazy son of a bitch",
+];
+
+const POLITE_GREETING = "hi fren";
+
+function getWakeGreeting(): string {
+  if (!sailorMouthEnabled) return POLITE_GREETING;
+  return SAILOR_GREETINGS[Math.floor(Math.random() * SAILOR_GREETINGS.length)];
 }
 
 // ==================== WebSocket Relay Server ====================
@@ -166,6 +190,15 @@ function handleMessage(sender: WebSocket, message: GlassesMessage) {
         console.log("Client identified as vesper");
       }
       broadcast(getGlassesClients(), message);
+      break;
+
+    case "CONFIG":
+      if (message.metadata) {
+        if ("sailor_mouth" in message.metadata) {
+          sailorMouthEnabled = message.metadata.sailor_mouth === "true";
+          console.log(`[Config] Sailor mouth: ${sailorMouthEnabled}`);
+        }
+      }
       break;
   }
 }
@@ -300,7 +333,7 @@ async function startMentraIntegration() {
               // Greet on wake — cancel any in-flight speech first
               try { await session.audio.stop(); } catch { /* no-op */ }
               session.audio
-                .speak("hi fren", {
+                .speak(getWakeGreeting(), {
                   language: "en-GB",
                   voice: "en-GB-Wavenet-F",
                 })

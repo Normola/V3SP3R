@@ -119,6 +119,16 @@ class GlassesBridgeClient @Inject constructor() {
         ))
     }
 
+    /**
+     * Push a config key-value to the bridge (e.g. sailor_mouth toggle).
+     */
+    fun sendConfig(config: Map<String, String>) {
+        send(GlassesMessage(
+            type = MessageType.CONFIG,
+            metadata = config
+        ))
+    }
+
     fun isConnected(): Boolean = _state.value is BridgeState.Connected
 
     fun destroy() {
@@ -304,5 +314,8 @@ enum class MessageType {
 
     // V3SP3R → Glasses
     AI_RESPONSE,
-    STATUS_UPDATE
+    STATUS_UPDATE,
+
+    // V3SP3R → Bridge (config sync)
+    CONFIG
 }
