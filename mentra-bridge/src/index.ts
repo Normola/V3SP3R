@@ -68,7 +68,7 @@ export function broadcast(targets: WebSocket[], message: GlassesMessage) {
 
 // ==================== WebSocket Relay Server ====================
 
-const PORT = parseInt(process.env.PORT || "3000", 10);
+const PORT = parseInt(process.env.PORT || "8089", 10);
 const wss = new WebSocketServer({ port: PORT });
 
 console.log(`V3SP3R Glasses Bridge running on port ${PORT}`);
@@ -407,9 +407,11 @@ async function startMentraIntegration() {
         // mini app. Also serves as a health-check log line.
         const keepaliveTimer = setInterval(async () => {
           try {
-            await session.layouts.showTextWall("V3SP3R Active", {
-              durationMs: 1000,
-            });
+            if (session.isConnected?.() ?? true) {
+              await session.layouts.showTextWall("V3SP3R Active", {
+                durationMs: 1000,
+              });
+            }
           } catch {
             // Session may have ended — cleanup will handle it
           }
@@ -547,7 +549,7 @@ startMentraIntegration();
 
 // ==================== Health Check ====================
 
-const HTTP_PORT = parseInt(process.env.HTTP_PORT || "3001", 10);
+const HTTP_PORT = parseInt(process.env.HTTP_PORT || "8088", 10);
 
 const httpServer = createServer((req, res) => {
   if (req.url === "/health") {
