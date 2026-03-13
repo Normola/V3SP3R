@@ -111,7 +111,12 @@ enum class CommandAction {
     DOWNLOAD_RESOURCE,
 
     @SerialName("github_search")
-    GITHUB_SEARCH
+    GITHUB_SEARCH,
+
+    // ── Smartglasses camera ───────────────────────────────────
+
+    @SerialName("request_photo")
+    REQUEST_PHOTO
 }
 
 @Serializable
@@ -158,7 +163,9 @@ data class CommandArgs(
     @SerialName("download_url")
     val downloadUrl: String? = null,
     @SerialName("search_scope")
-    val searchScope: String? = null
+    val searchScope: String? = null,
+    @SerialName("photo_prompt")
+    val photoPrompt: String? = null
 )
 
 /**

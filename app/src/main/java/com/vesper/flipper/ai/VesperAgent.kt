@@ -23,6 +23,20 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
+ * Callback for requesting a photo capture from smart glasses.
+ * Implemented by [GlassesIntegration] and registered via [VesperAgent.setPhotoCaptureCallback].
+ */
+fun interface PhotoCaptureCallback {
+    /**
+     * Capture a photo from the glasses camera and return a text description.
+     * @param prompt Vision analysis instructions (e.g. "Identify the TV brand")
+     * @param timeoutMs Max time to wait for the glasses to return a photo
+     * @return Text description of the photo, or null if capture failed
+     */
+    suspend fun capturePhoto(prompt: String, timeoutMs: Long = 15_000L): String?
+}
+
+/**
  * Main AI agent orchestrator.
  * Manages conversation flow, tool execution, and state.
  */
@@ -37,6 +51,15 @@ class VesperAgent @Inject constructor(
 
     private val _conversationState = MutableStateFlow(ConversationState())
     val conversationState: StateFlow<ConversationState> = _conversationState.asStateFlow()
+
+    // Photo capture via smart glasses — set by GlassesIntegration when connected
+    @Volatile
+    private var photoCaptureCallback: PhotoCaptureCallback? = null
+
+    fun setPhotoCaptureCallback(callback: PhotoCaptureCallback?) {
+        photoCaptureCallback = callback
+    }
+
     private val persistenceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val persistenceMutex = Mutex()
     private val persistenceJson = Json {
@@ -351,6 +374,62 @@ class VesperAgent @Inject constructor(
                                 detail = "Executing ${command.action.displayName()}..."
                             )
                         )
+
+                        // ── Intercept request_photo: handled here, not in CommandExecutor ──
+                        if (command.action == CommandAction.REQUEST_PHOTO) {
+                            val photoPrompt = command.args.photoPrompt
+                                ?: command.args.prompt
+                                ?: "Describe what you see in detail"
+                            val callback = photoCaptureCallback
+                            if (callback == null) {
+                                toolResults.add(
+                                    ChatToolResult(
+                                        toolCallId = toolCall.id,
+                                        content = """{"success": false, "error": "Smart glasses are not connected. Cannot capture photo. Ask the user to describe what they see instead."}""",
+                                        success = false
+                                    )
+                                )
+                            } else {
+                                _conversationState.value = _conversationState.value.copy(
+                                    progress = AgentProgress(
+                                        stage = AgentProgressStage.TOOL_EXECUTING,
+                                        detail = "Capturing photo from glasses..."
+                                    )
+                                )
+                                val description = callback.capturePhoto(photoPrompt)
+                                if (description != null) {
+                                    toolResults.add(
+                                        ChatToolResult(
+                                            toolCallId = toolCall.id,
+                                            content = """{"success": true, "data": {"description": ${Json.encodeToString(description)}}}""",
+                                            success = true
+                                        )
+                                    )
+                                    _conversationState.value = _conversationState.value.copy(
+                                        progress = AgentProgress(
+                                            stage = AgentProgressStage.TOOL_COMPLETED,
+                                            detail = "Photo captured and analyzed."
+                                        )
+                                    )
+                                } else {
+                                    toolResults.add(
+                                        ChatToolResult(
+                                            toolCallId = toolCall.id,
+                                            content = """{"success": false, "error": "Photo capture failed or timed out. The glasses camera may not be available. Ask the user to describe what they see."}""",
+                                            success = false
+                                        )
+                                    )
+                                    _conversationState.value = _conversationState.value.copy(
+                                        progress = AgentProgress(
+                                            stage = AgentProgressStage.TOOL_COMPLETED,
+                                            detail = "Photo capture failed."
+                                        )
+                                    )
+                                }
+                            }
+                            continue
+                        }
+
                         val commandResult = commandExecutor.execute(command, currentSessionId)
 
                         if (commandResult.requiresConfirmation && commandResult.pendingApprovalId != null) {

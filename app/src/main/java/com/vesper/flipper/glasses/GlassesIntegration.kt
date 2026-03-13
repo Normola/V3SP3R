@@ -2,6 +2,7 @@ package com.vesper.flipper.glasses
 
 import android.util.Log
 import com.vesper.flipper.ai.OpenRouterClient
+import com.vesper.flipper.ai.PhotoCaptureCallback
 import com.vesper.flipper.ai.VesperAgent
 import com.vesper.flipper.data.SettingsStore
 import com.vesper.flipper.domain.model.*
@@ -97,12 +98,20 @@ class GlassesIntegration @Inject constructor(
     private var lastSpokenProgressStage: AgentProgressStage? = null
     private var lastSpokenProgressDetail: String? = null
 
+    // Agent-initiated photo capture: when the LLM calls request_photo, we wait for
+    // the glasses to return a CAMERA_PHOTO message. This deferred is non-null only
+    // while an agent capture is in progress.
+    private var agentPhotoDeferred: CompletableDeferred<ImageAttachment?>? = null
+    private val agentPhotoMutex = Mutex()
+
     /**
      * Connect to the glasses bridge and start relaying messages.
+     * Also registers the photo capture callback so the agent can request photos.
      */
     fun connect(bridgeUrl: String) {
         bridge.connect(bridgeUrl)
         startListeners()
+        vesperAgent.setPhotoCaptureCallback(photoCaptureCallback)
     }
 
     /**
@@ -117,6 +126,9 @@ class GlassesIntegration @Inject constructor(
         photoHoldJob = null
         lastSpokenProgressStage = null
         lastSpokenProgressDetail = null
+        vesperAgent.setPhotoCaptureCallback(null)
+        agentPhotoDeferred?.cancel()
+        agentPhotoDeferred = null
     }
 
     fun isConnected(): Boolean = bridge.isConnected()
@@ -272,6 +284,15 @@ class GlassesIntegration @Inject constructor(
             base64Data = imageData,
             mimeType = mimeType
         )
+
+        // If an agent-initiated capture is waiting, deliver the photo there
+        // instead of the normal chat pipeline.
+        val deferred = agentPhotoDeferred
+        if (deferred != null && deferred.isActive) {
+            Log.i(TAG, "Delivering photo to agent request_photo capture")
+            deferred.complete(attachment)
+            return
+        }
 
         // Cancel any previous hold timer
         photoHoldJob?.cancel()
@@ -595,6 +616,66 @@ class GlassesIntegration @Inject constructor(
         // Best-effort clear — no mutex needed since we're just resetting
         awaitingVoiceApproval = false
         pendingApprovalId = null
+    }
+
+    // ── Agent-initiated photo capture ─────────────────────────────────
+
+    /**
+     * Callback registered on VesperAgent so the LLM can request photos via
+     * the request_photo tool action.
+     *
+     * Flow:
+     *   1. LLM calls request_photo → VesperAgent calls this callback
+     *   2. We send CAPTURE_REQUEST to the bridge
+     *   3. Bridge asks the glasses to capture a photo
+     *   4. Glasses return CAMERA_PHOTO → handleCameraPhoto() completes the deferred
+     *   5. We preprocess the photo with Gemini vision and return the description
+     */
+    private val photoCaptureCallback = PhotoCaptureCallback { prompt, timeoutMs ->
+        if (!bridge.isConnected()) {
+            Log.w(TAG, "Photo capture requested but bridge not connected")
+            return@PhotoCaptureCallback null
+        }
+
+        val attachment = try {
+            agentPhotoMutex.withLock {
+                // Cancel any stale deferred from a previous attempt
+                agentPhotoDeferred?.cancel()
+                agentPhotoDeferred = CompletableDeferred()
+            }
+
+            // Ask the bridge to capture
+            bridge.sendCaptureRequest(prompt)
+            bridge.sendStatus("Capturing photo...")
+
+            // Wait for the photo to arrive (handleCameraPhoto will complete the deferred)
+            val deferred = agentPhotoDeferred!!
+            withTimeout(timeoutMs) { deferred.await() }
+        } catch (e: TimeoutCancellationException) {
+            Log.w(TAG, "Photo capture timed out after ${timeoutMs}ms")
+            bridge.sendStatus("Photo capture timed out")
+            null
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.e(TAG, "Photo capture failed: ${e.message}", e)
+            null
+        } finally {
+            agentPhotoMutex.withLock { agentPhotoDeferred = null }
+        }
+
+        if (attachment == null) return@PhotoCaptureCallback null
+
+        // Preprocess with Gemini vision to get a text description
+        try {
+            val description = openRouterClient.describeImageForAgent(attachment, prompt)
+            description
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            Log.e(TAG, "Vision analysis failed: ${e.message}", e)
+            // Return a basic fallback
+            "A photo was captured but vision analysis failed. Ask the user to describe what they see."
+        }
     }
 
     fun destroy() {

@@ -64,7 +64,7 @@ class OpenRouterClient @Inject constructor(
     }
 
     // Use centralized prompt system for consistency and maintainability
-    private val systemPrompt = VesperPrompts.SYSTEM_PROMPT
+    private val baseSystemPrompt = VesperPrompts.SYSTEM_PROMPT
 
     /**
      * Send a chat completion request with tool calling.
@@ -103,6 +103,14 @@ class OpenRouterClient @Inject constructor(
             preprocessImagesAsText(compactMessages, apiKey)
         } else {
             compactMessages
+        }
+
+        // Build system prompt — append smartglasses camera section when glasses are enabled
+        val glassesEnabled = settingsStore.glassesEnabled.first()
+        val systemPrompt = if (glassesEnabled) {
+            baseSystemPrompt + "\n\n" + VesperPrompts.SMARTGLASSES_ADDENDUM
+        } else {
+            baseSystemPrompt
         }
 
         val requestMessages = buildList {
@@ -218,6 +226,69 @@ class OpenRouterClient @Inject constructor(
             }
 
             msg.copy(content = updatedContent, imageAttachments = null)
+        }
+    }
+
+    /**
+     * Public entry point for agent-initiated photo analysis (request_photo action).
+     * Sends the image to the vision model with a custom prompt and returns the description.
+     */
+    suspend fun describeImageForAgent(
+        attachment: ImageAttachment,
+        prompt: String
+    ): String? = withContext(Dispatchers.IO) {
+        val apiKey = settingsStore.apiKey.first() ?: return@withContext null
+        try {
+            val visionMessages = listOf(
+                OpenRouterMessage.text(
+                    role = "system",
+                    content = "You are a visual analysis assistant for a Flipper Zero companion app with smart glasses. " +
+                        "The user is wearing smart glasses and has captured a photo of what they're looking at. " +
+                        "Describe what you see in detail. Focus on: brand names, model numbers, " +
+                        "device types (TV, AC, car, remote control, gate, etc.), any visible text or labels, " +
+                        "and any details that would help identify the correct IR/RF/NFC protocol or signal. " +
+                        "Be specific and concise."
+                ),
+                OpenRouterMessage.multimodal(
+                    role = "user",
+                    text = prompt,
+                    images = listOf(
+                        ImageContent(
+                            base64Data = attachment.base64Data,
+                            mimeType = attachment.mimeType,
+                            detail = "high"
+                        )
+                    )
+                )
+            )
+
+            val request = OpenRouterRequest(
+                model = VISION_PREPROCESSING_MODEL,
+                messages = visionMessages,
+                tools = null,
+                toolChoice = null,
+                maxTokens = 500
+            )
+
+            val requestBody = json.encodeToString(request)
+                .toRequestBody("application/json".toMediaType())
+
+            val httpRequest = Request.Builder()
+                .url(OPENROUTER_API_URL)
+                .addHeader("Authorization", "Bearer $apiKey")
+                .addHeader("Content-Type", "application/json")
+                .addHeader("HTTP-Referer", "https://vesper.flipper.app")
+                .addHeader("X-Title", "Vesper Flipper Control")
+                .post(requestBody)
+                .build()
+
+            val result = executeWithRetry(httpRequest)
+            when (result) {
+                is ChatCompletionResult.Success -> result.content.takeIf { it.isNotBlank() }
+                is ChatCompletionResult.Error -> null
+            }
+        } catch (_: Exception) {
+            null
         }
     }
 
@@ -1170,7 +1241,8 @@ class OpenRouterClient @Inject constructor(
             "badusb_execute",
             "ble_spam",
             "led_control",
-            "vibro_control"
+            "vibro_control",
+            "request_photo"
         )
 
         private val TOOL_USE_FALLBACK_MODELS = listOf(
@@ -1193,7 +1265,7 @@ class OpenRouterClient @Inject constructor(
             type = "function",
             function = OpenRouterToolFunction(
                 name = "execute_command",
-                description = "Execute a Flipper operation. Supports file ops, device queries, FapHub, CLI commands, payload forging, resource search, repo browsing (browse_repo to list files via GitHub API), resource download (download_resource to fetch files to Flipper), vault scan, runbooks, AND hardware control: launch apps, transmit Sub-GHz/IR signals, emulate NFC/RFID/iButton, run BadUSB, BLE spam, LED and vibro control.",
+                description = "Execute a Flipper operation. Supports file ops, device queries, FapHub, CLI commands, payload forging, resource search, repo browsing (browse_repo to list files via GitHub API), resource download (download_resource to fetch files to Flipper), vault scan, runbooks, hardware control (launch apps, transmit Sub-GHz/IR signals, emulate NFC/RFID/iButton, run BadUSB, BLE spam, LED and vibro control), AND smart glasses camera (request_photo to capture and analyze what the user sees).",
                 parameters = JsonObject(mapOf(
                     "type" to JsonPrimitive("object"),
                     "properties" to JsonObject(mapOf(
@@ -1230,9 +1302,10 @@ class OpenRouterClient @Inject constructor(
                                 JsonPrimitive("vibro_control"),
                                 JsonPrimitive("browse_repo"),
                                 JsonPrimitive("download_resource"),
-                                JsonPrimitive("github_search")
+                                JsonPrimitive("github_search"),
+                                JsonPrimitive("request_photo")
                             )),
-                            "description" to JsonPrimitive("The action to perform on the Flipper Zero")
+                            "description" to JsonPrimitive("The action to perform on the Flipper Zero (request_photo requires smart glasses)")
                         )),
                         "args" to JsonObject(mapOf(
                             "type" to JsonPrimitive("object"),
@@ -1354,6 +1427,10 @@ class OpenRouterClient @Inject constructor(
                                 "search_scope" to JsonObject(mapOf(
                                     "type" to JsonPrimitive("string"),
                                     "description" to JsonPrimitive("Scope for github_search: 'repositories' (find repos) or 'code' (find files). Default: 'code'. Use 'code' with file extensions like 'extension:ir' or 'extension:sub'.")
+                                )),
+                                "photo_prompt" to JsonObject(mapOf(
+                                    "type" to JsonPrimitive("string"),
+                                    "description" to JsonPrimitive("Vision analysis prompt for request_photo. Describe what you want to identify (e.g. 'Identify the TV brand and model', 'What device is this?'). Falls back to 'prompt' if not set.")
                                 ))
                             ))
                         )),

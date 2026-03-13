@@ -120,6 +120,18 @@ class GlassesBridgeClient @Inject constructor() {
     }
 
     /**
+     * Request a photo capture from the glasses camera.
+     * The result will arrive as a [MessageType.CAMERA_PHOTO] on [incomingMessages].
+     */
+    fun sendCaptureRequest(prompt: String? = null) {
+        send(GlassesMessage(
+            type = MessageType.CAPTURE_REQUEST,
+            text = prompt,
+            metadata = mapOf("reason" to "agent-request")
+        ))
+    }
+
+    /**
      * Push a config key-value to the bridge (e.g. sailor_mouth toggle).
      */
     fun sendConfig(config: Map<String, String>) {

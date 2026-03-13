@@ -649,6 +649,15 @@ class CommandExecutor @Inject constructor(
                     message = if (on) "Vibration on" else "Vibration off"
                 )
             }
+
+            // REQUEST_PHOTO is intercepted by VesperAgent before reaching here.
+            // This stub exists only so the exhaustive when compiles.
+            CommandAction.REQUEST_PHOTO -> {
+                CommandResultData(
+                    content = "request_photo is handled at the agent layer",
+                    message = "Photo capture handled by agent"
+                )
+            }
         }
     }
 

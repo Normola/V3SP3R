@@ -311,6 +311,17 @@ class RiskAssessor @Inject constructor(
                 )
             }
 
+            // LOW risk: photo request reads from glasses camera — no Flipper side-effects
+            CommandAction.REQUEST_PHOTO -> {
+                RiskAssessment(
+                    level = RiskLevel.LOW,
+                    reason = "Glasses camera capture (read-only)",
+                    affectedPaths = paths,
+                    requiresDiff = false,
+                    requiresConfirmation = false
+                )
+            }
+
             // LOW risk: LED and vibro are harmless hardware feedback
             CommandAction.LED_CONTROL,
             CommandAction.VIBRO_CONTROL -> {
