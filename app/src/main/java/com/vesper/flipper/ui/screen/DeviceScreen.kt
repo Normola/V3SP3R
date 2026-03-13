@@ -719,6 +719,7 @@ private fun CommandAutomationStatusCard(
                             FirmwareTransportMode.CLI_AND_RPC -> "CLI + RPC"
                             FirmwareTransportMode.CLI_ONLY -> "CLI-only"
                             FirmwareTransportMode.RPC_ONLY -> "RPC-only"
+                            FirmwareTransportMode.PROBING -> "Probing…"
                             FirmwareTransportMode.UNAVAILABLE -> "Unavailable"
                         }
                     )
