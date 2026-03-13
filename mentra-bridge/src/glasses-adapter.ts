@@ -198,10 +198,14 @@ export class MentraAdapter extends GlassesAdapter {
 
     switch (message.type) {
       case "AI_RESPONSE":
-        // Speak through glasses speakers
+        // Cancel in-flight speech, then speak with British female voice
         if (message.text) {
+          this.session.audio.stop?.().catch(() => {});
           this.session.audio
-            .speak(message.text, { language: "en-US" })
+            .speak(message.text, {
+              language: "en-GB",
+              voice: "en-GB-Wavenet-F",
+            })
             .catch((e: Error) =>
               console.warn("[MentraOS] TTS failed:", e.message)
             );

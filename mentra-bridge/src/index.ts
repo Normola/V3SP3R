@@ -268,7 +268,7 @@ async function startMentraIntegration() {
 
         // ── Voice → V3SP3R ────────────────────────────────────────
         session.events.onTranscription(
-          (data: {
+          async (data: {
             text: string;
             isFinal: boolean;
             transcribeLanguage?: string;
@@ -297,6 +297,15 @@ async function startMentraIntegration() {
             }
 
             if (isWakeTriggered) {
+              // Greet on wake — cancel any in-flight speech first
+              try { await session.audio.stop(); } catch { /* no-op */ }
+              session.audio
+                .speak("hi fren", {
+                  language: "en-GB",
+                  voice: "en-GB-Wavenet-F",
+                })
+                .catch(() => {});
+
               if (command && command.length > 0) {
                 // "Hey Vesper, scan this" — immediate command
                 console.log(`[MentraOS] Wake + command: "${command}"`);
@@ -546,7 +555,12 @@ async function handleMentraResponse(session: any, message: GlassesMessage) {
     switch (message.type) {
       case "AI_RESPONSE":
         if (message.text) {
-          await session.audio.speak(message.text, { language: "en-US" });
+          // Cancel any in-flight speech to prevent overlapping voices
+          try { await session.audio.stop(); } catch { /* no-op if not supported */ }
+          await session.audio.speak(message.text, {
+            language: "en-GB",
+            voice: "en-GB-Wavenet-F",
+          });
         }
         if (message.displayText) {
           await session.layouts.showReferenceCard({
