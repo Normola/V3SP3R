@@ -17,11 +17,14 @@ import com.vesper.flipper.data.SettingsStore
 import com.vesper.flipper.domain.model.DeviceInfo
 import com.vesper.flipper.domain.model.FlipperRemoteButton
 import com.vesper.flipper.domain.model.StorageInfo
+import com.vesper.flipper.glasses.BridgeState
+import com.vesper.flipper.glasses.GlassesIntegration
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -31,7 +34,8 @@ import javax.inject.Inject
 class DeviceViewModel @Inject constructor(
     private val settingsStore: SettingsStore,
     private val fileSystem: FlipperFileSystem,
-    private val bleServiceManager: BleServiceManager
+    private val bleServiceManager: BleServiceManager,
+    private val glassesIntegration: GlassesIntegration
 ) : ViewModel() {
 
     private val _connectionState = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected)
@@ -64,6 +68,15 @@ class DeviceViewModel @Inject constructor(
     val isSendingRemoteInput: StateFlow<Boolean> = _isSendingRemoteInput.asStateFlow()
     private val _remoteInputStatus = MutableStateFlow<String?>(null)
     val remoteInputStatus: StateFlow<String?> = _remoteInputStatus.asStateFlow()
+    // Glasses bridge state
+    val glassesBridgeState: StateFlow<BridgeState> = glassesIntegration.bridgeState
+
+    private val _glassesEnabled = MutableStateFlow(false)
+    val glassesEnabled: StateFlow<Boolean> = _glassesEnabled.asStateFlow()
+
+    private val _glassesBridgeUrl = MutableStateFlow("")
+    val glassesBridgeUrl: StateFlow<String> = _glassesBridgeUrl.asStateFlow()
+
     private val refreshMutex = Mutex()
     private val remoteInputMutex = Mutex()
 
@@ -73,6 +86,17 @@ class DeviceViewModel @Inject constructor(
         viewModelScope.launch {
             fileSystem.autotuneStatus.collect { status ->
                 _autotuneStatus.value = status
+            }
+        }
+        // Observe glasses settings
+        viewModelScope.launch {
+            settingsStore.glassesEnabled.collect { enabled ->
+                _glassesEnabled.value = enabled
+            }
+        }
+        viewModelScope.launch {
+            settingsStore.glassesBridgeUrl.collect { url ->
+                _glassesBridgeUrl.value = url ?: ""
             }
         }
     }
@@ -251,6 +275,18 @@ class DeviceViewModel @Inject constructor(
         } finally {
             _isSendingRemoteInput.value = false
         }
+    }
+
+    // ==================== Glasses Bridge ====================
+
+    fun connectGlassesBridge() {
+        val url = _glassesBridgeUrl.value
+        if (url.isBlank()) return
+        glassesIntegration.connect(url)
+    }
+
+    fun disconnectGlassesBridge() {
+        glassesIntegration.disconnect()
     }
 
 }

@@ -32,6 +32,7 @@ import com.vesper.flipper.ble.FirmwareCompatibilityProfile
 import com.vesper.flipper.ble.FirmwareTransportMode
 import com.vesper.flipper.ble.FlipperDevice
 import com.vesper.flipper.domain.model.FlipperRemoteButton
+import com.vesper.flipper.glasses.BridgeState
 import com.vesper.flipper.ui.theme.*
 import com.vesper.flipper.ui.viewmodel.DeviceViewModel
 import kotlinx.coroutines.Job
@@ -58,6 +59,9 @@ fun DeviceScreen(
     val firmwareCompatibility by viewModel.firmwareCompatibility.collectAsState()
     val isSendingRemoteInput by viewModel.isSendingRemoteInput.collectAsState()
     val remoteInputStatus by viewModel.remoteInputStatus.collectAsState()
+    val glassesEnabled by viewModel.glassesEnabled.collectAsState()
+    val glassesBridgeState by viewModel.glassesBridgeState.collectAsState()
+    val glassesBridgeUrl by viewModel.glassesBridgeUrl.collectAsState()
 
     Scaffold(
         topBar = {
@@ -110,6 +114,18 @@ fun DeviceScreen(
                     connectedDevice = connectedDevice,
                     onDisconnect = { viewModel.disconnect() }
                 )
+            }
+
+            // Smart Glasses Bridge (only when enabled in Settings)
+            if (glassesEnabled) {
+                item {
+                    GlassesBridgeStatusCard(
+                        bridgeState = glassesBridgeState,
+                        bridgeUrl = glassesBridgeUrl,
+                        onConnect = { viewModel.connectGlassesBridge() },
+                        onDisconnect = { viewModel.disconnectGlassesBridge() }
+                    )
+                }
             }
 
             item {
@@ -282,6 +298,154 @@ private fun ConnectionStatusCard(
                         tint = RiskHigh
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GlassesBridgeStatusCard(
+    bridgeState: BridgeState,
+    bridgeUrl: String,
+    onConnect: () -> Unit,
+    onDisconnect: () -> Unit
+) {
+    val isConnected = bridgeState is BridgeState.Connected
+    val isConnecting = bridgeState is BridgeState.Connecting || bridgeState is BridgeState.Reconnecting
+    val isError = bridgeState is BridgeState.Error
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = when {
+                isConnected -> VesperAccent.copy(alpha = 0.1f)
+                isConnecting -> RiskMedium.copy(alpha = 0.1f)
+                isError -> RiskHigh.copy(alpha = 0.1f)
+                else -> MaterialTheme.colorScheme.surfaceVariant
+            }
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Header row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(
+                            when {
+                                isConnected -> VesperAccent
+                                isConnecting -> RiskMedium
+                                isError -> RiskHigh
+                                else -> MaterialTheme.colorScheme.secondary
+                            }
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = when {
+                            isConnected -> Icons.Default.Visibility
+                            isConnecting -> Icons.Default.Sync
+                            isError -> Icons.Default.ErrorOutline
+                            else -> Icons.Default.VisibilityOff
+                        },
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Smart Glasses Bridge",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = when (bridgeState) {
+                            is BridgeState.Connected -> "Connected"
+                            is BridgeState.Connecting -> "Connecting..."
+                            is BridgeState.Reconnecting ->
+                                "Reconnecting (${bridgeState.attempt}/${bridgeState.maxAttempts})..."
+                            is BridgeState.Error -> bridgeState.message
+                            is BridgeState.Disconnected -> "Not connected"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = when {
+                            isConnected -> VesperAccent
+                            isError -> RiskHigh
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                    )
+                }
+
+                if (isConnected) {
+                    IconButton(onClick = onDisconnect) {
+                        Icon(
+                            Icons.Default.LinkOff,
+                            contentDescription = "Disconnect Bridge",
+                            tint = RiskHigh
+                        )
+                    }
+                }
+            }
+
+            // Bridge URL
+            if (bridgeUrl.isNotBlank()) {
+                Text(
+                    text = bridgeUrl,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1
+                )
+            }
+
+            // Connect / Retry button
+            if (!isConnected && !isConnecting) {
+                FilledTonalButton(
+                    onClick = onConnect,
+                    enabled = bridgeUrl.isNotBlank()
+                ) {
+                    Icon(Icons.Default.Cable, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(if (isError) "Retry Connection" else "Connect to Bridge")
+                }
+            }
+
+            // Connecting spinner
+            if (isConnecting) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        color = RiskMedium,
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Establishing WebSocket connection...",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            // No URL configured hint
+            if (bridgeUrl.isBlank()) {
+                Text(
+                    text = "Set your bridge server URL in Settings to connect.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }
