@@ -1558,9 +1558,36 @@ data class OpenRouterToolCall(
     val function: OpenRouterFunction = OpenRouterFunction()
 )
 
+/**
+ * Custom serializer for [OpenRouterFunction.arguments].
+ * Some models return `arguments` as a JSON string (correct per OpenAI spec),
+ * while others return it as a raw JSON object. This serializer accepts both
+ * forms and always produces a String for downstream parsing.
+ */
+private object ArgumentsAsStringSerializer : kotlinx.serialization.KSerializer<String> {
+    override val descriptor = kotlinx.serialization.descriptors.PrimitiveSerialDescriptor(
+        "ArgumentsAsString",
+        kotlinx.serialization.descriptors.PrimitiveKind.STRING
+    )
+
+    override fun deserialize(decoder: kotlinx.serialization.encoding.Decoder): String {
+        val input = decoder as kotlinx.serialization.json.JsonDecoder
+        val element = input.decodeJsonElement()
+        return when (element) {
+            is JsonPrimitive -> element.contentOrNull ?: ""
+            else -> element.toString()
+        }
+    }
+
+    override fun serialize(encoder: kotlinx.serialization.encoding.Encoder, value: String) {
+        encoder.encodeString(value)
+    }
+}
+
 @Serializable
 data class OpenRouterFunction(
     val name: String = "",
+    @Serializable(with = ArgumentsAsStringSerializer::class)
     val arguments: String = ""
 )
 

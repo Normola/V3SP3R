@@ -962,7 +962,6 @@ private fun ChatInputBar(
                 if (isGlassesConnected) {
                     IconButton(
                         onClick = onToggleGlassesMute,
-                        enabled = enabled
                     ) {
                         Icon(
                             if (isGlassesMuted) Icons.Default.MicOff else Icons.Default.Mic,
