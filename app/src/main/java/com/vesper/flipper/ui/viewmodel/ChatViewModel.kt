@@ -6,6 +6,7 @@ import android.graphics.BitmapFactory
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.util.Base64
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vesper.flipper.ai.VesperAgent
@@ -51,6 +52,11 @@ class ChatViewModel @Inject constructor(
 
     private val _isProcessingImage = MutableStateFlow(false)
     val isProcessingImage: StateFlow<Boolean> = _isProcessingImage.asStateFlow()
+
+    private val _imageError = MutableStateFlow<String?>(null)
+    val imageError: StateFlow<String?> = _imageError.asStateFlow()
+
+    fun clearImageError() { _imageError.value = null }
 
     // Voice input
     private val speechRecognitionHelper = SpeechRecognitionHelper(context)
@@ -163,6 +169,7 @@ class ChatViewModel @Inject constructor(
     }
 
     companion object {
+        private const val TAG = "ChatViewModel"
         private const val MAX_IMAGE_SIZE = 1024 // Max dimension for resizing
         private const val JPEG_QUALITY = 85
         private const val MAX_IMAGE_FILE_SIZE = 10 * 1024 * 1024 // 10MB max file size
@@ -267,7 +274,8 @@ class ChatViewModel @Inject constructor(
     fun addImage(uri: Uri) {
         // Enforce max pending images
         if (_pendingImages.value.size >= MAX_PENDING_IMAGES) {
-            return // Silently ignore - UI should prevent this
+            Log.w(TAG, "Max pending images reached, ignoring addImage")
+            return
         }
 
         viewModelScope.launch {
@@ -279,7 +287,13 @@ class ChatViewModel @Inject constructor(
                     if (_pendingImages.value.size < MAX_PENDING_IMAGES) {
                         _pendingImages.value = _pendingImages.value + attachment
                     }
+                } else {
+                    Log.e(TAG, "processImageUri returned null for $uri")
+                    _imageError.value = "Failed to process image"
                 }
+            } catch (e: Exception) {
+                Log.e(TAG, "addImage failed for $uri", e)
+                _imageError.value = "Image error: ${e.message?.take(60) ?: "unknown"}"
             } finally {
                 _isProcessingImage.value = false
             }
@@ -372,10 +386,11 @@ class ChatViewModel @Inject constructor(
 
             result
         } catch (e: OutOfMemoryError) {
-            // Force garbage collection on OOM
+            Log.e(TAG, "OOM processing image: $uri", e)
             System.gc()
             null
         } catch (e: Exception) {
+            Log.e(TAG, "Failed to process image: $uri", e)
             null
         } finally {
             // Always recycle bitmaps to free native memory
