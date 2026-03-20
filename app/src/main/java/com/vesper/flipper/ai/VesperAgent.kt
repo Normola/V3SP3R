@@ -114,8 +114,20 @@ class VesperAgent @Inject constructor(
             error = null
         )
 
-        // Process with AI
-        return processAIResponse(messages)
+        // Process with AI — catch unexpected exceptions so the UI never gets
+        // stuck in a permanent loading state (e.g. image preprocessing crash).
+        return try {
+            processAIResponse(messages)
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            _conversationState.value = _conversationState.value.copy(
+                messages = messages,
+                isLoading = false,
+                progress = null,
+                error = "Something went wrong: ${e.message?.take(120) ?: "unknown error"}"
+            )
+            _conversationState.value
+        }
     }
 
     /**
@@ -215,8 +227,25 @@ class VesperAgent @Inject constructor(
         if (hasImages) {
             val apiKey = settingsStore.apiKey.first()
             if (apiKey != null) {
-                val processed = openRouterClient.preprocessImagesAsText(currentMessages, apiKey)
-                currentMessages = processed.toMutableList()
+                try {
+                    val processed = openRouterClient.preprocessImagesAsText(currentMessages, apiKey)
+                    currentMessages = processed.toMutableList()
+                } catch (e: Exception) {
+                    if (e is kotlinx.coroutines.CancellationException) throw e
+                    // Vision preprocessing failed — strip raw images and add a
+                    // fallback note so the conversation can still proceed.
+                    currentMessages = currentMessages.map { msg ->
+                        if (msg.imageAttachments.isNullOrEmpty()) msg
+                        else {
+                            val fallback = "[${msg.imageAttachments.size} image(s) attached but vision analysis failed. " +
+                                "Describe what you see to the user or ask them for details.]"
+                            msg.copy(
+                                content = if (msg.content.isNotBlank()) "$fallback\n\n${msg.content}" else fallback,
+                                imageAttachments = null
+                            )
+                        }
+                    }.toMutableList()
+                }
             }
         }
 

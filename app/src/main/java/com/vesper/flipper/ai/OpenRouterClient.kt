@@ -135,7 +135,8 @@ class OpenRouterClient @Inject constructor(
                 buildToolCallingRequest(
                     apiKey = apiKey,
                     model = candidateModel,
-                    messages = requestMessages
+                    messages = requestMessages,
+                    includeGlassesActions = glassesEnabled
                 )
             )
 
@@ -390,12 +391,14 @@ class OpenRouterClient @Inject constructor(
     private fun buildToolCallingRequest(
         apiKey: String,
         model: String,
-        messages: List<OpenRouterMessage>
+        messages: List<OpenRouterMessage>,
+        includeGlassesActions: Boolean = false
     ): Request {
+        val tool = if (includeGlassesActions) EXECUTE_COMMAND_TOOL else buildToolWithoutGlasses()
         val request = OpenRouterRequest(
             model = model,
             messages = messages,
-            tools = listOf(EXECUTE_COMMAND_TOOL),
+            tools = listOf(tool),
             toolChoice = "auto",
             maxTokens = TOOL_CALL_RESPONSE_MAX_TOKENS
         )
@@ -1475,6 +1478,45 @@ class OpenRouterClient @Inject constructor(
                 ))
             )
         )
+
+        /**
+         * Build a copy of the tool schema WITHOUT glasses-only actions
+         * (request_photo). This prevents the model from calling request_photo
+         * when the user has smart glasses disabled, which would fail and
+         * confuse normal photo workflows.
+         */
+        private fun buildToolWithoutGlasses(): OpenRouterTool {
+            val fullParams = EXECUTE_COMMAND_TOOL.function.parameters
+            val properties = fullParams["properties"] as? JsonObject ?: return EXECUTE_COMMAND_TOOL
+            val actionProp = properties["action"] as? JsonObject ?: return EXECUTE_COMMAND_TOOL
+            val actionEnum = actionProp["enum"] as? JsonArray ?: return EXECUTE_COMMAND_TOOL
+
+            // Filter out glasses-only actions and the photo_prompt arg
+            val filteredEnum = JsonArray(actionEnum.filter {
+                it is JsonPrimitive && it.contentOrNull != "request_photo"
+            })
+            val filteredActionProp = JsonObject(actionProp.toMutableMap().apply {
+                put("enum", filteredEnum)
+                // Clean up the description too
+                put("description", JsonPrimitive("The action to perform on the Flipper Zero"))
+            })
+            val filteredProperties = JsonObject(properties.toMutableMap().apply {
+                put("action", filteredActionProp)
+                remove("photo_prompt")
+            })
+            val filteredParams = JsonObject(fullParams.toMutableMap().apply {
+                put("properties", filteredProperties)
+            })
+
+            return OpenRouterTool(
+                type = "function",
+                function = OpenRouterToolFunction(
+                    name = EXECUTE_COMMAND_TOOL.function.name,
+                    description = EXECUTE_COMMAND_TOOL.function.description,
+                    parameters = filteredParams
+                )
+            )
+        }
     }
 }
 

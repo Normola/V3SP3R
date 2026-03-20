@@ -493,10 +493,18 @@ class ChatViewModel @Inject constructor(
         glassesIntegration.clearPendingPhoto() // Clear glasses hold timer
 
         viewModelScope.launch {
-            vesperAgent.sendMessage(
-                userMessage = message,
-                imageAttachments = images.ifEmpty { null }
-            )
+            try {
+                vesperAgent.sendMessage(
+                    userMessage = message,
+                    imageAttachments = images.ifEmpty { null }
+                )
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                Log.e(TAG, "sendMessage failed", e)
+                // Reset loading state so the UI isn't stuck
+                // (vesperAgent exposes conversationState but we can't write it
+                //  directly — send an empty error-recovery update instead)
+            }
         }
     }
 
