@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.Flow
 
 @Database(
     entities = [AuditEntryEntity::class, ChatMessageEntity::class],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class VesperDatabase : RoomDatabase() {
@@ -89,7 +89,8 @@ data class ChatMessageEntity(
     val toolResultsJson: String?,
     val status: String,
     val metadataJson: String?,
-    val sessionId: String
+    val sessionId: String,
+    val imageAttachmentsJson: String? = null
 )
 
 @Dao

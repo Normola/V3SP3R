@@ -261,22 +261,21 @@ class VesperAgent @Inject constructor(
             settingsStore.aiMaxIterations.first()
         }.getOrDefault(SettingsStore.DEFAULT_AI_MAX_ITERATIONS)
 
-        // Pre-process image attachments so that text descriptions are baked into
-        // message content *before* the conversation state is updated. This ensures
-        // the persistence layer captures the descriptions instead of losing the
-        // transient image data that toEntity() cannot serialise.
+        // Pre-process image attachments: create a separate copy of messages for the
+        // API where images are replaced with text descriptions. The original messages
+        // (with images intact) are kept for UI display and persistence.
+        var apiMessages: MutableList<ChatMessage> = currentMessages.toMutableList()
         val hasImages = currentMessages.any { !it.imageAttachments.isNullOrEmpty() }
         if (hasImages) {
             val apiKey = settingsStore.apiKey.first()
             if (apiKey != null) {
                 try {
-                    val processed = openRouterClient.preprocessImagesAsText(currentMessages, apiKey)
-                    currentMessages = processed.toMutableList()
+                    apiMessages = openRouterClient.preprocessImagesAsText(currentMessages, apiKey).toMutableList()
                 } catch (e: Exception) {
                     if (e is kotlinx.coroutines.CancellationException) throw e
-                    // Vision preprocessing failed — strip raw images and add a
-                    // fallback note so the conversation can still proceed.
-                    currentMessages = currentMessages.map { msg ->
+                    // Vision preprocessing failed — create API-only fallback messages
+                    // but keep originals (with images) for display.
+                    apiMessages = currentMessages.map { msg ->
                         if (msg.imageAttachments.isNullOrEmpty()) msg
                         else {
                             val fallback = "[${msg.imageAttachments.size} image(s) attached but vision analysis failed. " +
@@ -314,7 +313,8 @@ class VesperAgent @Inject constructor(
                 )
             )
 
-            val result = openRouterClient.chat(currentMessages, currentSessionId)
+            // Send API messages (images replaced with text descriptions) to the model
+            val result = openRouterClient.chat(apiMessages, currentSessionId)
 
             when (result) {
                 is ChatCompletionResult.Error -> {
@@ -351,6 +351,7 @@ class VesperAgent @Inject constructor(
                             )
                         )
                         currentMessages.add(assistantMessage)
+                        apiMessages.add(assistantMessage)
 
                         _conversationState.value = _conversationState.value.copy(
                             messages = currentMessages,
@@ -371,6 +372,7 @@ class VesperAgent @Inject constructor(
                         )
                     )
                     currentMessages.add(assistantMessage)
+                    apiMessages.add(assistantMessage)
 
                     _conversationState.value = _conversationState.value.copy(
                         messages = currentMessages,
@@ -543,6 +545,7 @@ class VesperAgent @Inject constructor(
                                 ) ?: MessageMetadata(pendingApprovalId = commandResult.pendingApprovalId)
                             )
                             currentMessages[currentMessages.lastIndex] = updatedAssistantMessage
+                            apiMessages[apiMessages.lastIndex] = updatedAssistantMessage
 
                             _conversationState.value = _conversationState.value.copy(
                                 messages = currentMessages,
@@ -582,6 +585,7 @@ class VesperAgent @Inject constructor(
                         toolResults = toolResults
                     )
                     currentMessages.add(toolMessage)
+                    apiMessages.add(toolMessage)
 
                     _conversationState.value = _conversationState.value.copy(
                         messages = currentMessages,
@@ -668,7 +672,8 @@ class VesperAgent @Inject constructor(
             toolResultsJson = toolResults?.takeIf { it.isNotEmpty() }?.let { persistenceJson.encodeToString(it) },
             status = status.name,
             metadataJson = metadata?.let { persistenceJson.encodeToString(it) },
-            sessionId = sessionId
+            sessionId = sessionId,
+            imageAttachmentsJson = imageAttachments?.takeIf { it.isNotEmpty() }?.let { persistenceJson.encodeToString(it) }
         )
     }
 
@@ -684,6 +689,9 @@ class VesperAgent @Inject constructor(
         val parsedMetadata = metadataJson?.let { payload ->
             runCatching { persistenceJson.decodeFromString<MessageMetadata>(payload) }.getOrNull()
         }
+        val parsedImageAttachments = imageAttachmentsJson?.let { payload ->
+            runCatching { persistenceJson.decodeFromString<List<ImageAttachment>>(payload) }.getOrNull()
+        }
         return ChatMessage(
             id = id,
             role = parsedRole,
@@ -692,7 +700,8 @@ class VesperAgent @Inject constructor(
             toolCalls = parsedToolCalls,
             toolResults = parsedToolResults,
             status = parsedStatus,
-            metadata = parsedMetadata
+            metadata = parsedMetadata,
+            imageAttachments = parsedImageAttachments
         )
     }
 
