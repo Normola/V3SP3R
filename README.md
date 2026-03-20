@@ -1,3 +1,12 @@
+```
+ ██╗   ██╗ ██████╗ ███████╗██████╗ ███████╗██████╗
+ ██║   ██║╚════██╗██╔════╝██╔══██╗██╔════╝██╔══██╗
+ ██║   ██║ █████╔╝███████╗██████╔╝█████╗  ██████╔╝
+ ╚██╗ ██╔╝ ╚═══██╗╚════██║██╔═══╝ ██╔══╝  ██╔══██╗
+  ╚████╔╝ ██████╔╝███████║██║     ███████╗██║  ██║
+   ╚═══╝  ╚═════╝ ╚══════╝╚═╝     ╚══════╝╚═╝  ╚═╝
+```
+
 # V3SP3R — The AI Brain for Your Flipper Zero
 
 > **Talk to your Flipper Zero like it's a teammate.** Vesper turns your pocket hacking tool into an AI-powered command center — controlled entirely through natural language from your Android device.
