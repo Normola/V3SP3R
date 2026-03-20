@@ -47,6 +47,9 @@ import com.vesper.flipper.ui.theme.*
 import com.vesper.flipper.ui.viewmodel.ChatViewModel
 import com.vesper.flipper.voice.SpeechState
 import com.vesper.flipper.voice.TtsState
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.widget.Toast
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -619,37 +622,59 @@ private fun ChatMessageItem(
                 )
             }
 
-            // TTS speaker button for assistant text messages
-            if (isAssistant && message.content.isNotBlank() && message.toolCalls.isNullOrEmpty() && onSpeak != null) {
+            // Action buttons row (copy + TTS) for messages with text content
+            if ((isUser || isAssistant) && message.content.isNotBlank()) {
+                val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as ClipboardManager
+                val showTts = isAssistant && message.toolCalls.isNullOrEmpty() && onSpeak != null
                 val isSpeaking = ttsState is TtsState.Speaking
                 val isLoading = ttsState is TtsState.Loading
                 Row(
                     modifier = Modifier.padding(top = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
                 ) {
+                    // Copy button
                     IconButton(
                         onClick = {
-                            if (isSpeaking) {
-                                onStopSpeaking?.invoke()
-                            } else {
-                                onSpeak(message.content)
-                            }
+                            clipboard.setPrimaryClip(ClipData.newPlainText("message", message.content))
+                            Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
                         },
                         modifier = Modifier.size(28.dp)
                     ) {
-                        if (isLoading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(14.dp),
-                                strokeWidth = 2.dp,
-                                color = VesperOrange
-                            )
-                        } else {
-                            Icon(
-                                imageVector = if (isSpeaking) Icons.Default.Stop else Icons.Default.VolumeUp,
-                                contentDescription = if (isSpeaking) "Stop" else "Speak",
-                                modifier = Modifier.size(16.dp),
-                                tint = VesperOrange
-                            )
+                        Icon(
+                            imageVector = Icons.Default.ContentCopy,
+                            contentDescription = "Copy",
+                            modifier = Modifier.size(14.dp),
+                            tint = if (isUser) VesperOrange else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        )
+                    }
+                    // TTS button for assistant messages
+                    if (showTts) {
+                        Spacer(modifier = Modifier.width(4.dp))
+                        IconButton(
+                            onClick = {
+                                if (isSpeaking) {
+                                    onStopSpeaking?.invoke()
+                                } else {
+                                    onSpeak!!(message.content)
+                                }
+                            },
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            if (isLoading) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(14.dp),
+                                    strokeWidth = 2.dp,
+                                    color = VesperOrange
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = if (isSpeaking) Icons.Default.Stop else Icons.Default.VolumeUp,
+                                    contentDescription = if (isSpeaking) "Stop" else "Speak",
+                                    modifier = Modifier.size(16.dp),
+                                    tint = VesperOrange
+                                )
+                            }
                         }
                     }
                 }
