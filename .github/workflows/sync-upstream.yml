@@ -1,0 +1,27 @@
+name: Sync upstream
+on:
+  schedule:
+    - cron: '0 6 * * *'  # daily at 6am
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Sync with upstream
+        run: |
+          git remote add upstream https://github.com/elder-plinius/V3SP3R.git
+          git fetch upstream
+          git merge upstream/main --no-edit
+          git push origin main
